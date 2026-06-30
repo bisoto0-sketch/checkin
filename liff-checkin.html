@@ -47,6 +47,10 @@
   .btn-out { background: #FF6B6B; }
   .btn:disabled { background: #ccc; cursor: not-allowed; }
   .loc-info { font-size: 12px; color: #999; margin-top: 12px; line-height: 1.6; }
+  .nearby { margin-top: 12px; text-align: left; }
+  .nearby-title { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .nearby-item { font-size: 13px; color: #444; padding: 6px 10px; background: #f9f9f9; border-radius: 8px; margin-bottom: 5px; }
+  .nearby-item span { color: #999; font-size: 11px; margin-left: 6px; }
   .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
   .msg.ok { background: #e6f9ee; color: #06C755; display: block; }
   .msg.err { background: #fdeeee; color: #e74c3c; display: block; }
@@ -71,6 +75,10 @@
 
   <div class="msg" id="msgBox"></div>
   <div class="loc-info" id="locInfo"></div>
+  <div class="nearby" id="nearbyBox" style="display:none;">
+    <div class="nearby-title">📍 附近餐廳／店家</div>
+    <div id="nearbyList"></div>
+  </div>
 </div>
 
 <script>
@@ -115,6 +123,25 @@ function getLocation(){
   });
 }
 
+async function getNearbyPlaces(lat, lng){
+  try{
+    const query = `[out:json][timeout:10];
+node["amenity"~"restaurant|cafe|fast_food|food_court|bar|pub|bakery"](around:300,${lat},${lng});
+out 5;`;
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    });
+    const data = await res.json();
+    return (data.elements || []).map(el => {
+      const name = el.tags['name'] || el.tags['name:zh'] || '無名店家';
+      const type = el.tags['amenity'] || '';
+      const typeMap = { restaurant:'餐廳', cafe:'咖啡廳', fast_food:'速食', food_court:'美食街', bar:'酒吧', pub:'酒館', bakery:'烘焙' };
+      return { name, type: typeMap[type] || type };
+    });
+  }catch(e){ return []; }
+}
+
 async function reverseGeocode(lat, lng){
   try{
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=zh-TW`;
@@ -146,12 +173,24 @@ async function initLocation(){
     document.getElementById('locInfo').textContent =
       `座標: ${lat.toFixed(6)}, ${lng.toFixed(6)}　誤差約 ${acc} 公尺\n🔍 查詢附近地點中...`;
 
-    const address = await reverseGeocode(lat, lng);
+    const [address, places] = await Promise.all([
+      reverseGeocode(lat, lng),
+      getNearbyPlaces(lat, lng)
+    ]);
     const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
     document.getElementById('locInfo').innerHTML =
       `座標: ${lat.toFixed(6)}, ${lng.toFixed(6)}　誤差約 ${acc} 公尺<br>` +
       `📌 ${address ? address : '無法取得地址'}<br>` +
       `<a href="${mapLink}" target="_blank" style="color:#06C755;">在 Google Maps 上查看</a>`;
+
+    if(places.length > 0){
+      const box = document.getElementById('nearbyBox');
+      const list = document.getElementById('nearbyList');
+      box.style.display = 'block';
+      list.innerHTML = places.map(p =>
+        `<div class="nearby-item">🍽 ${p.name}<span>${p.type}</span></div>`
+      ).join('');
+    }
 
     document.getElementById('btnIn').disabled = false;
     document.getElementById('btnOut').disabled = false;
