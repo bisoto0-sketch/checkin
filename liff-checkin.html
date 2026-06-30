@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>員工打卡</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: #f4f5f7;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    text-align: center;
+    margin-top: 16px;
+  }
+  .avatar { width: 64px; height: 64px; border-radius: 50%; margin-bottom: 8px; }
+  .name { font-size: 18px; font-weight: 600; color: #222; }
+  .clock { font-size: 40px; font-weight: 700; margin: 16px 0 4px; color: #06C755; }
+  .date { color: #888; font-size: 14px; margin-bottom: 20px; }
+  .status { font-size: 13px; color: #555; margin-bottom: 16px; min-height: 18px; }
+  .btn {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 12px;
+    cursor: pointer;
+  }
+  .btn-in { background: #06C755; }
+  .btn-out { background: #FF6B6B; }
+  .btn:disabled { background: #ccc; cursor: not-allowed; }
+  .loc-info { font-size: 12px; color: #999; margin-top: 12px; line-height: 1.6; }
+  .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
+  .msg.ok { background: #e6f9ee; color: #06C755; display: block; }
+  .msg.err { background: #fdeeee; color: #e74c3c; display: block; }
+  .loading { font-size: 14px; color: #999; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div id="profile">
+    <div class="loading">載入中...</div>
+  </div>
+</div>
+
+<div class="card" id="clockCard" style="display:none;">
+  <div class="clock" id="clockTime">--:--:--</div>
+  <div class="date" id="clockDate">----/--/--</div>
+  <div class="status" id="locStatus">📍 定位中...</div>
+
+  <button class="btn btn-in" id="btnIn" disabled>上班打卡</button>
+  <button class="btn btn-out" id="btnOut" disabled>下班打卡</button>
+
+  <div class="msg" id="msgBox"></div>
+  <div class="loc-info" id="locInfo"></div>
+</div>
+
+<script>
+// ====== 設定區：請依實際情況修改 ======
+const LIFF_ID = "2010558375-DIVGLcgr";
+const API_URL = "https://script.google.com/macros/s/AKfycbzYwVnpXFGSOGorojA4Axi8zNd6SVZNQKlyLrKLwPjoUDgP9wNubYDHxsCB5sb4XHB8/exec";
+// =====================================
+
+let currentPosition = null;
+let userProfile = null;
+
+function pad(n){ return n.toString().padStart(2,'0'); }
+
+function updateClock(){
+  const now = new Date();
+  document.getElementById('clockTime').textContent =
+    `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  document.getElementById('clockDate').textContent =
+    `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} (${['日','一','二','三','四','五','六'][now.getDay()]})`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function showMsg(text, ok){
+  const box = document.getElementById('msgBox');
+  box.textContent = text;
+  box.className = 'msg ' + (ok ? 'ok' : 'err');
+  setTimeout(()=>{ box.className='msg'; }, 4000);
+}
+
+function getLocation(){
+  return new Promise((resolve, reject)=>{
+    if(!navigator.geolocation){
+      reject(new Error('此裝置不支援定位'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve(pos),
+      err => reject(err),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+}
+
+async function initLocation(){
+  try{
+    const pos = await getLocation();
+    currentPosition = pos;
+    document.getElementById('locStatus').textContent = '📍 定位成功，可以打卡';
+    document.getElementById('locInfo').textContent =
+      `座標: ${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)} (誤差約 ${Math.round(pos.coords.accuracy)} 公尺)`;
+    document.getElementById('btnIn').disabled = false;
+    document.getElementById('btnOut').disabled = false;
+  }catch(e){
+    document.getElementById('locStatus').textContent = '⚠️ 定位失敗，請開啟定位權限後重新整理';
+    document.getElementById('btnIn').disabled = true;
+    document.getElementById('btnOut').disabled = true;
+  }
+}
+
+async function doClock(type){
+  const btnIn = document.getElementById('btnIn');
+  const btnOut = document.getElementById('btnOut');
+  btnIn.disabled = true; btnOut.disabled = true;
+
+  try{
+    // 每次打卡都重新定位，確保是打卡當下的位置
+    const pos = await getLocation();
+    currentPosition = pos;
+
+    const payload = {
+      userId: userProfile.userId,
+      name: userProfile.displayName,
+      type: type, // 'IN' or 'OUT'
+      timestamp: new Date().toISOString(),
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      accuracy: pos.coords.accuracy
+    };
+
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // 避免 CORS preflight
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+
+    if(result.success){
+      showMsg(type === 'IN' ? '✅ 上班打卡成功！' : '✅ 下班打卡成功！', true);
+    } else {
+      showMsg('❌ 打卡失敗：' + (result.message || '未知錯誤'), false);
+    }
+  }catch(e){
+    showMsg('❌ 打卡失敗：' + e.message, false);
+  }finally{
+    btnIn.disabled = false; btnOut.disabled = false;
+  }
+}
+
+document.getElementById('btnIn').addEventListener('click', ()=>doClock('IN'));
+document.getElementById('btnOut').addEventListener('click', ()=>doClock('OUT'));
+
+async function main(){
+  try{
+    await liff.init({ liffId: LIFF_ID });
+    if(!liff.isLoggedIn()){
+      liff.login();
+      return;
+    }
+    userProfile = await liff.getProfile();
+
+    document.getElementById('profile').innerHTML = `
+      <img class="avatar" src="${userProfile.pictureUrl || ''}">
+      <div class="name">${userProfile.displayName}</div>
+    `;
+    document.getElementById('clockCard').style.display = 'block';
+    initLocation();
+  }catch(e){
+    document.getElementById('profile').innerHTML =
+      `<div style="color:#e74c3c;">初始化失敗：${e.message}</div>`;
+  }
+}
+
+main();
+</script>
+</body>
+</html>
