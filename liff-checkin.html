@@ -115,13 +115,44 @@ function getLocation(){
   });
 }
 
+async function reverseGeocode(lat, lng){
+  try{
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=zh-TW`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'zh-TW' } });
+    const data = await res.json();
+    if(data && data.display_name){
+      // 取比較短的地址：shop/amenity > road + suburb + city
+      const a = data.address || {};
+      const place = a.shop || a.amenity || a.building || a.tourism || '';
+      const road = a.road || '';
+      const district = a.suburb || a.neighbourhood || a.quarter || '';
+      const city = a.city || a.town || a.county || '';
+      const parts = [place, road, district, city].filter(Boolean);
+      return parts.length ? parts.join('・') : data.display_name.split(',').slice(0,3).join(',');
+    }
+  }catch(e){}
+  return null;
+}
+
 async function initLocation(){
   try{
     const pos = await getLocation();
     currentPosition = pos;
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const acc = Math.round(pos.coords.accuracy);
+
     document.getElementById('locStatus').textContent = '📍 定位成功，可以打卡';
     document.getElementById('locInfo').textContent =
-      `座標: ${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)} (誤差約 ${Math.round(pos.coords.accuracy)} 公尺)`;
+      `座標: ${lat.toFixed(6)}, ${lng.toFixed(6)}　誤差約 ${acc} 公尺\n🔍 查詢附近地點中...`;
+
+    const address = await reverseGeocode(lat, lng);
+    const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
+    document.getElementById('locInfo').innerHTML =
+      `座標: ${lat.toFixed(6)}, ${lng.toFixed(6)}　誤差約 ${acc} 公尺<br>` +
+      `📌 ${address ? address : '無法取得地址'}<br>` +
+      `<a href="${mapLink}" target="_blank" style="color:#06C755;">在 Google Maps 上查看</a>`;
+
     document.getElementById('btnIn').disabled = false;
     document.getElementById('btnOut').disabled = false;
   }catch(e){
