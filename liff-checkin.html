@@ -211,6 +211,9 @@ async function doClock(type){
     const pos = await getLocation();
     currentPosition = pos;
 
+    // 打卡當下重新取一次地址
+    const punchAddress = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+
     const payload = {
       userId: userProfile.userId,
       name: userProfile.displayName,
@@ -218,7 +221,8 @@ async function doClock(type){
       timestamp: new Date().toISOString(),
       lat: pos.coords.latitude,
       lng: pos.coords.longitude,
-      accuracy: pos.coords.accuracy
+      accuracy: pos.coords.accuracy,
+      address: punchAddress || ''
     };
 
     const res = await fetch(API_URL, {
