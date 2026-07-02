@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>員工打卡</title>
+<title>本月打卡記錄</title>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
   * { box-sizing: border-box; }
@@ -11,263 +11,203 @@
     font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
     background: #f4f5f7;
     margin: 0;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    padding: 16px;
     min-height: 100vh;
   }
-  .card {
-    background: #fff;
-    border-radius: 16px;
-    padding: 24px;
-    width: 100%;
-    max-width: 420px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-    text-align: center;
-    margin-top: 16px;
-  }
-  .avatar { width: 64px; height: 64px; border-radius: 50%; margin-bottom: 8px; }
-  .name { font-size: 18px; font-weight: 600; color: #222; }
-  .clock { font-size: 40px; font-weight: 700; margin: 16px 0 4px; color: #06C755; }
-  .date { color: #888; font-size: 14px; margin-bottom: 20px; }
-  .status { font-size: 13px; color: #555; margin-bottom: 16px; min-height: 18px; }
-  .btn {
-    width: 100%;
-    padding: 16px;
-    border: none;
-    border-radius: 12px;
-    font-size: 18px;
-    font-weight: 700;
+  .header {
+    background: #06C755;
     color: #fff;
+    border-radius: 16px;
+    padding: 16px 20px;
     margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-name { font-size: 16px; font-weight: 600; }
+  .header-month { font-size: 14px; opacity: 0.85; }
+  .month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  .month-nav button {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 16px;
     cursor: pointer;
   }
-  .btn-in { background: #06C755; }
-  .btn-out { background: #FF6B6B; }
-  .btn:disabled { background: #ccc; cursor: not-allowed; }
-  .loc-info { font-size: 12px; color: #999; margin-top: 12px; line-height: 1.6; }
-  .nearby { margin-top: 12px; text-align: left; }
-  .nearby-title { font-size: 12px; color: #888; margin-bottom: 6px; }
-  .nearby-item { font-size: 13px; color: #444; padding: 6px 10px; background: #f9f9f9; border-radius: 8px; margin-bottom: 5px; }
-  .nearby-item span { color: #999; font-size: 11px; margin-left: 6px; }
-  .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
-  .msg.ok { background: #e6f9ee; color: #06C755; display: block; }
-  .msg.err { background: #fdeeee; color: #e74c3c; display: block; }
-  .loading { font-size: 14px; color: #999; }
+  .month-label { font-size: 16px; font-weight: 700; color: #333; min-width: 90px; text-align: center; }
+  .summary-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-around;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  }
+  .summary-item { text-align: center; }
+  .summary-item .val { font-size: 22px; font-weight: 700; color: #06C755; }
+  .summary-item .lbl { font-size: 11px; color: #999; margin-top: 2px; }
+  .day-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .day-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .day-date { font-size: 14px; font-weight: 700; color: #333; }
+  .day-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+  .status-done { background: #e6f9ee; color: #06C755; }
+  .status-pending { background: #fff3e0; color: #e67e22; }
+  .day-times { display: flex; gap: 16px; font-size: 13px; color: #555; }
+  .day-times span { color: #999; font-size: 11px; }
+  .day-hours { font-size: 13px; color: #888; margin-top: 4px; }
+  .day-addr { font-size: 11px; color: #aaa; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty { text-align: center; color: #bbb; padding: 40px 0; font-size: 14px; }
+  .loading { text-align: center; color: #999; padding: 40px 0; font-size: 14px; }
 </style>
 </head>
 <body>
 
-<div class="card">
-  <div id="profile">
-    <div class="loading">載入中...</div>
+<div class="header">
+  <div>
+    <div class="header-name" id="userName">載入中...</div>
+    <div class="header-month">本月打卡記錄</div>
+  </div>
+  <img id="userAvatar" style="width:40px;height:40px;border-radius:50%;display:none;">
+</div>
+
+<div class="month-nav">
+  <button id="btnPrev">‹</button>
+  <div class="month-label" id="monthLabel">----/--</div>
+  <button id="btnNext">›</button>
+</div>
+
+<div class="summary-card" id="summaryCard" style="display:none;">
+  <div class="summary-item">
+    <div class="val" id="sumDays">0</div>
+    <div class="lbl">出勤天數</div>
+  </div>
+  <div class="summary-item">
+    <div class="val" id="sumHours">0</div>
+    <div class="lbl">總工時(小時)</div>
+  </div>
+  <div class="summary-item">
+    <div class="val" id="sumOvertime">0</div>
+    <div class="lbl">加班時數</div>
   </div>
 </div>
 
-<div class="card" id="clockCard" style="display:none;">
-  <div class="clock" id="clockTime">--:--:--</div>
-  <div class="date" id="clockDate">----/--/--</div>
-  <div class="status" id="locStatus">📍 定位中...</div>
-
-  <button class="btn btn-in" id="btnIn" disabled>上班打卡</button>
-  <button class="btn btn-out" id="btnOut" disabled>下班打卡</button>
-
-  <div class="msg" id="msgBox"></div>
-  <div class="loc-info" id="locInfo"></div>
-  <div class="nearby" id="nearbyBox" style="display:none;">
-    <div class="nearby-title">📍 附近餐廳／店家</div>
-    <div id="nearbyList"></div>
-  </div>
-</div>
+<div id="recordList"><div class="loading">載入中...</div></div>
 
 <script>
-// ====== 設定區：請依實際情況修改 ======
-const LIFF_ID = "2010558375-DIVGLcgr";
+const LIFF_ID = "YOUR_MONTHLY_LIFF_ID";
 const API_URL = "https://script.google.com/macros/s/AKfycbzYwVnpXFGSOGorojA4Axi8zNd6SVZNQKlyLrKLwPjoUDgP9wNubYDHxsCB5sb4XHB8/exec";
-// =====================================
 
-let currentPosition = null;
-let userProfile = null;
+let userId = '';
+let currentYear = new Date().getFullYear();
+let currentMonth = new Date().getMonth() + 1;
 
 function pad(n){ return n.toString().padStart(2,'0'); }
+function monthStr(){ return `${currentYear}-${pad(currentMonth)}`; }
+function monthDisplay(){ return `${currentYear}/${pad(currentMonth)}`; }
 
-function updateClock(){
+function updateMonthLabel(){
+  document.getElementById('monthLabel').textContent = monthDisplay();
+}
+
+document.getElementById('btnPrev').addEventListener('click', () => {
+  currentMonth--;
+  if(currentMonth < 1){ currentMonth = 12; currentYear--; }
+  updateMonthLabel();
+  loadData();
+});
+document.getElementById('btnNext').addEventListener('click', () => {
   const now = new Date();
-  document.getElementById('clockTime').textContent =
-    `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-  document.getElementById('clockDate').textContent =
-    `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} (${['日','一','二','三','四','五','六'][now.getDay()]})`;
-}
-setInterval(updateClock, 1000);
-updateClock();
+  if(currentYear === now.getFullYear() && currentMonth >= now.getMonth()+1) return;
+  currentMonth++;
+  if(currentMonth > 12){ currentMonth = 1; currentYear++; }
+  updateMonthLabel();
+  loadData();
+});
 
-function showMsg(text, ok){
-  const box = document.getElementById('msgBox');
-  box.textContent = text;
-  box.className = 'msg ' + (ok ? 'ok' : 'err');
-  setTimeout(()=>{ box.className='msg'; }, 4000);
-}
-
-function getLocation(){
-  return new Promise((resolve, reject)=>{
-    if(!navigator.geolocation){
-      reject(new Error('此裝置不支援定位'));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      pos => resolve(pos),
-      err => reject(err),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  });
-}
-
-async function getNearbyPlaces(lat, lng){
-  try{
-    const query = `[out:json][timeout:10];
-node["amenity"~"restaurant|cafe|fast_food|food_court|bar|pub|bakery"](around:300,${lat},${lng});
-out 5;`;
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: query
-    });
-    const data = await res.json();
-    return (data.elements || []).map(el => {
-      const name = el.tags['name'] || el.tags['name:zh'] || '無名店家';
-      const type = el.tags['amenity'] || '';
-      const typeMap = { restaurant:'餐廳', cafe:'咖啡廳', fast_food:'速食', food_court:'美食街', bar:'酒吧', pub:'酒館', bakery:'烘焙' };
-      return { name, type: typeMap[type] || type };
-    });
-  }catch(e){ return []; }
-}
-
-async function reverseGeocode(lat, lng){
-  try{
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=zh-TW`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'zh-TW' } });
-    const data = await res.json();
-    if(data && data.display_name){
-      // 取比較短的地址：shop/amenity > road + suburb + city
-      const a = data.address || {};
-      const place = a.shop || a.amenity || a.building || a.tourism || '';
-      const road = a.road || '';
-      const district = a.suburb || a.neighbourhood || a.quarter || '';
-      const city = a.city || a.town || a.county || '';
-      const parts = [place, road, district, city].filter(Boolean);
-      return parts.length ? parts.join('・') : data.display_name.split(',').slice(0,3).join(',');
-    }
-  }catch(e){}
-  return null;
-}
-
-async function initLocation(){
-  try{
-    const pos = await getLocation();
-    currentPosition = pos;
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-    const acc = Math.round(pos.coords.accuracy);
-
-    document.getElementById('locStatus').textContent = '📍 定位成功，可以打卡';
-    document.getElementById('locInfo').textContent =
-      `座標: ${lat.toFixed(6)}, ${lng.toFixed(6)}　誤差約 ${acc} 公尺\n🔍 查詢附近地點中...`;
-
-    const [address, places] = await Promise.all([
-      reverseGeocode(lat, lng),
-      getNearbyPlaces(lat, lng)
-    ]);
-    const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
-    document.getElementById('locInfo').innerHTML =
-      `座標: ${lat.toFixed(6)}, ${lng.toFixed(6)}　誤差約 ${acc} 公尺<br>` +
-      `📌 ${address ? address : '無法取得地址'}<br>` +
-      `<a href="${mapLink}" target="_blank" style="color:#06C755;">在 Google Maps 上查看</a>`;
-
-    if(places.length > 0){
-      const box = document.getElementById('nearbyBox');
-      const list = document.getElementById('nearbyList');
-      box.style.display = 'block';
-      list.innerHTML = places.map(p =>
-        `<div class="nearby-item">🍽 ${p.name}<span>${p.type}</span></div>`
-      ).join('');
-    }
-
-    document.getElementById('btnIn').disabled = false;
-    document.getElementById('btnOut').disabled = false;
-  }catch(e){
-    document.getElementById('locStatus').textContent = '⚠️ 定位失敗，請開啟定位權限後重新整理';
-    document.getElementById('btnIn').disabled = true;
-    document.getElementById('btnOut').disabled = true;
-  }
-}
-
-async function doClock(type){
-  const btnIn = document.getElementById('btnIn');
-  const btnOut = document.getElementById('btnOut');
-  btnIn.disabled = true; btnOut.disabled = true;
-
-  try{
-    // 每次打卡都重新定位，確保是打卡當下的位置
-    const pos = await getLocation();
-    currentPosition = pos;
-
-    // 打卡當下重新取一次地址
-    const punchAddress = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
-
-    const payload = {
-      userId: userProfile.userId,
-      name: userProfile.displayName,
-      type: type, // 'IN' or 'OUT'
-      timestamp: new Date().toISOString(),
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude,
-      accuracy: pos.coords.accuracy,
-      address: punchAddress || ''
-    };
-
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // 避免 CORS preflight
-      body: JSON.stringify(payload)
-    });
+async function loadData(){
+  document.getElementById('recordList').innerHTML = '<div class="loading">載入中...</div>';
+  document.getElementById('summaryCard').style.display = 'none';
+  try {
+    const url = `${API_URL}?action=monthly&userId=${encodeURIComponent(userId)}&month=${monthStr()}`;
+    const res = await fetch(url);
     const result = await res.json();
 
-    if(result.success){
-      showMsg(type === 'IN' ? '✅ 上班打卡成功！' : '✅ 下班打卡成功！', true);
-    } else {
-      showMsg('❌ 打卡失敗：' + (result.message || '未知錯誤'), false);
-    }
-  }catch(e){
-    showMsg('❌ 打卡失敗：' + e.message, false);
-  }finally{
-    btnIn.disabled = false; btnOut.disabled = false;
-  }
-}
-
-document.getElementById('btnIn').addEventListener('click', ()=>doClock('IN'));
-document.getElementById('btnOut').addEventListener('click', ()=>doClock('OUT'));
-
-async function main(){
-  try{
-    await liff.init({ liffId: LIFF_ID });
-    if(!liff.isLoggedIn()){
-      liff.login();
+    if(!result.success || result.data.length === 0){
+      document.getElementById('recordList').innerHTML = '<div class="empty">這個月沒有打卡記錄</div>';
       return;
     }
-    userProfile = await liff.getProfile();
 
-    document.getElementById('profile').innerHTML = `
-      <img class="avatar" src="${userProfile.pictureUrl || ''}">
-      <div class="name">${userProfile.displayName}</div>
-    `;
-    document.getElementById('clockCard').style.display = 'block';
-    initLocation();
-  }catch(e){
-    document.getElementById('profile').innerHTML =
-      `<div style="color:#e74c3c;">初始化失敗：${e.message}</div>`;
+    const rows = result.data;
+    let totalHours = 0, totalOvertime = 0, days = 0;
+    rows.forEach(r => {
+      if(r.inTime){ days++; }
+      totalHours += Number(r.totalHours) || 0;
+      totalOvertime += Number(r.overtimeHours) || 0;
+    });
+
+    document.getElementById('sumDays').textContent = days;
+    document.getElementById('sumHours').textContent = Math.round(totalHours * 10) / 10;
+    document.getElementById('sumOvertime').textContent = Math.round(totalOvertime * 10) / 10;
+    document.getElementById('summaryCard').style.display = 'flex';
+
+    const weekDays = ['日','一','二','三','四','五','六'];
+    document.getElementById('recordList').innerHTML = rows.map(r => {
+      const d = new Date(r.date + 'T00:00:00');
+      const wd = weekDays[d.getDay()];
+      const statusClass = r.status === '已完成' ? 'status-done' : 'status-pending';
+      const statusText = r.status || '—';
+      return `
+        <div class="day-card">
+          <div class="day-top">
+            <div class="day-date">${r.date} (${wd})</div>
+            <div class="day-status ${statusClass}">${statusText}</div>
+          </div>
+          <div class="day-times">
+            <div><span>上班</span><br>${r.inTime || '—'}</div>
+            <div><span>下班</span><br>${r.outTime || '—'}</div>
+            <div><span>工時</span><br>${r.totalHours}h</div>
+            ${r.overtimeHours > 0 ? `<div><span>加班</span><br>${r.overtimeHours}h</div>` : ''}
+          </div>
+          ${r.address ? `<div class="day-addr">📌 ${r.address}</div>` : ''}
+        </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('recordList').innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;
   }
 }
 
+async function main(){
+  updateMonthLabel();
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if(!liff.isLoggedIn()){ liff.login(); return; }
+    const profile = await liff.getProfile();
+    userId = profile.userId;
+    document.getElementById('userName').textContent = profile.displayName;
+    if(profile.pictureUrl){
+      const av = document.getElementById('userAvatar');
+      av.src = profile.pictureUrl;
+      av.style.display = 'block';
+    }
+    loadData();
+  } catch(e) {
+    document.getElementById('recordList').innerHTML = `<div class="empty">初始化失敗：${e.message}</div>`;
+  }
+}
 main();
 </script>
 </body>
