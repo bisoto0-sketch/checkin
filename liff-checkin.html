@@ -30,8 +30,19 @@
   .avatar { width: 64px; height: 64px; border-radius: 50%; margin-bottom: 8px; }
   .name { font-size: 18px; font-weight: 600; color: #222; }
   .clock { font-size: 40px; font-weight: 700; margin: 16px 0 4px; color: #06C755; }
-  .date { color: #888; font-size: 14px; margin-bottom: 20px; }
-  .status { font-size: 13px; color: #555; margin-bottom: 16px; min-height: 18px; }
+  .date { color: #888; font-size: 14px; margin-bottom: 16px; }
+  .status-bar {
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    display: none;
+    line-height: 1.6;
+  }
+  .status-bar.in  { background: #f0faf4; border: 1px solid #b7e8c9; color: #06C755; }
+  .status-bar.done { background: #e8f5e9; border: 1px solid #81c784; color: #2e7d32; }
+  .loc-status { font-size: 13px; color: #555; margin-bottom: 16px; min-height: 18px; }
   .btn {
     width: 100%;
     padding: 16px;
@@ -43,16 +54,16 @@
     margin-bottom: 12px;
     cursor: pointer;
   }
-  .btn-in { background: #06C755; }
+  .btn-in  { background: #06C755; }
   .btn-out { background: #FF6B6B; }
-  .btn:disabled { background: #ccc; cursor: not-allowed; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .loc-info { font-size: 12px; color: #999; margin-top: 12px; line-height: 1.6; }
   .nearby { margin-top: 12px; text-align: left; }
   .nearby-title { font-size: 12px; color: #888; margin-bottom: 6px; }
   .nearby-item { font-size: 13px; color: #444; padding: 6px 10px; background: #f9f9f9; border-radius: 8px; margin-bottom: 5px; }
   .nearby-item span { color: #999; font-size: 11px; margin-left: 6px; }
   .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
-  .msg.ok { background: #e6f9ee; color: #06C755; display: block; }
+  .msg.ok  { background: #e6f9ee; color: #06C755; display: block; }
   .msg.err { background: #fdeeee; color: #e74c3c; display: block; }
   .loading { font-size: 14px; color: #999; }
 </style>
@@ -60,18 +71,21 @@
 <body>
 
 <div class="card">
-  <div id="profile">
-    <div class="loading">載入中...</div>
-  </div>
+  <div id="profile"><div class="loading">載入中...</div></div>
 </div>
 
 <div class="card" id="clockCard" style="display:none;">
   <div class="clock" id="clockTime">--:--:--</div>
-  <div class="date" id="clockDate">----/--/--</div>
-  <div class="status" id="locStatus">📍 定位中...</div>
+  <div class="date"  id="clockDate">----/--/--</div>
 
-  <button class="btn btn-in" id="btnIn" disabled>上班打卡</button>
-  <button class="btn btn-out" id="btnOut" disabled>下班打卡</button>
+  <!-- 打卡狀態提示 -->
+  <div class="status-bar" id="statusBar"></div>
+
+  <div class="loc-status" id="locStatus">📍 定位中...</div>
+
+  <!-- 防呆：只顯示符合狀態的按鈕 -->
+  <button class="btn btn-in"  id="btnIn"  disabled>上班打卡</button>
+  <button class="btn btn-out" id="btnOut" disabled style="display:none;">下班打卡</button>
 
   <div class="msg" id="msgBox"></div>
   <div class="loc-info" id="locInfo"></div>
@@ -82,13 +96,13 @@
 </div>
 
 <script>
-// ====== 設定區：請依實際情況修改 ======
-const LIFF_ID = "2010558375-DIVGLcgr";
-const API_URL = "https://script.google.com/macros/s/AKfycbzYwVnpXFGSOGorojA4Axi8zNd6SVZNQKlyLrKLwPjoUDgP9wNubYDHxsCB5sb4XHB8/exec";
-// =====================================
+const LIFF_ID  = "2010558375-DIVGLcgr";
+const API_URL  = "https://script.google.com/macros/s/AKfycbzYwVnpXFGSOGorojA4Axi8zNd6SVZNQKlyLrKLwPjoUDgP9wNubYDHxsCB5sb4XHB8/exec";
 
 let currentPosition = null;
-let userProfile = null;
+let userProfile     = null;
+let todayStatus     = 'none'; // 'none' | 'in' | 'out'
+let locationReady   = false;
 
 function pad(n){ return n.toString().padStart(2,'0'); }
 
@@ -109,12 +123,59 @@ function showMsg(text, ok){
   setTimeout(()=>{ box.className='msg'; }, 4000);
 }
 
+// 根據狀態決定顯示哪個按鈕
+function applyStatus(status, inTime, outTime){
+  todayStatus = status;
+  const btnIn  = document.getElementById('btnIn');
+  const btnOut = document.getElementById('btnOut');
+  const bar    = document.getElementById('statusBar');
+
+  if(status === 'none'){
+    // 尚未上班 → 只顯示上班按鈕
+    btnIn.style.display  = 'block';
+    btnOut.style.display = 'none';
+    bar.style.display    = 'none';
+
+  } else if(status === 'in'){
+    // 已上班未下班 → 只顯示下班按鈕，顯示上班時間
+    btnIn.style.display  = 'none';
+    btnOut.style.display = 'block';
+    bar.style.display    = 'block';
+    bar.className        = 'status-bar in';
+    bar.innerHTML        = `✅ 上班打卡時間：<strong>${inTime}</strong>`;
+
+  } else if(status === 'out'){
+    // 今日已完成
+    btnIn.style.display  = 'none';
+    btnOut.style.display = 'none';
+    bar.style.display    = 'block';
+    bar.className        = 'status-bar done';
+    bar.innerHTML        = `🎉 今日打卡完成<br>上班 ${inTime} ／ 下班 ${outTime}`;
+  }
+
+  if(locationReady) enableVisibleBtn();
+}
+
+function enableVisibleBtn(){
+  const btnIn  = document.getElementById('btnIn');
+  const btnOut = document.getElementById('btnOut');
+  if(btnIn.style.display  !== 'none') btnIn.disabled  = false;
+  if(btnOut.style.display !== 'none') btnOut.disabled = false;
+}
+
+async function checkTodayStatus(){
+  try{
+    const res    = await fetch(`${API_URL}?action=status&userId=${encodeURIComponent(userProfile.userId)}`);
+    const result = await res.json();
+    if(result.success) applyStatus(result.status, result.inTime, result.outTime);
+  }catch(e){
+    applyStatus('none');
+  }
+}
+
 function getLocation(){
   return new Promise((resolve, reject)=>{
-    if(!navigator.geolocation){
-      reject(new Error('此裝置不支援定位'));
-      return;
-    }
+    if(!navigator.geolocation){ reject(new Error('此裝置不支援定位')); return; }
     navigator.geolocation.getCurrentPosition(
       pos => resolve(pos),
       err => reject(err),
@@ -128,16 +189,13 @@ async function getNearbyPlaces(lat, lng){
     const query = `[out:json][timeout:10];
 node["amenity"~"restaurant|cafe|fast_food|food_court|bar|pub|bakery"](around:300,${lat},${lng});
 out 5;`;
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: query
-    });
+    const res  = await fetch('https://overpass-api.de/api/interpreter', { method:'POST', body:query });
     const data = await res.json();
-    return (data.elements || []).map(el => {
+    return (data.elements||[]).map(el=>{
       const name = el.tags['name'] || el.tags['name:zh'] || '無名店家';
       const type = el.tags['amenity'] || '';
       const typeMap = { restaurant:'餐廳', cafe:'咖啡廳', fast_food:'速食', food_court:'美食街', bar:'酒吧', pub:'酒館', bakery:'烘焙' };
-      return { name, type: typeMap[type] || type };
+      return { name, type: typeMap[type]||type };
     });
   }catch(e){ return []; }
 }
@@ -145,16 +203,15 @@ out 5;`;
 async function reverseGeocode(lat, lng){
   try{
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=zh-TW`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'zh-TW' } });
+    const res  = await fetch(url, { headers:{'Accept-Language':'zh-TW'} });
     const data = await res.json();
     if(data && data.display_name){
-      // 取比較短的地址：shop/amenity > road + suburb + city
-      const a = data.address || {};
-      const place = a.shop || a.amenity || a.building || a.tourism || '';
-      const road = a.road || '';
-      const district = a.suburb || a.neighbourhood || a.quarter || '';
-      const city = a.city || a.town || a.county || '';
-      const parts = [place, road, district, city].filter(Boolean);
+      const a   = data.address || {};
+      const place    = a.shop||a.amenity||a.building||a.tourism||'';
+      const road     = a.road||'';
+      const district = a.suburb||a.neighbourhood||a.quarter||'';
+      const city     = a.city||a.town||a.county||'';
+      const parts = [place,road,district,city].filter(Boolean);
       return parts.length ? parts.join('・') : data.display_name.split(',').slice(0,3).join(',');
     }
   }catch(e){}
@@ -170,7 +227,7 @@ async function initLocation(){
     const acc = Math.round(pos.coords.accuracy);
 
     document.getElementById('locStatus').textContent = '📍 定位成功，可以打卡';
-    document.getElementById('locInfo').textContent =
+    document.getElementById('locInfo').textContent   =
       `座標: ${lat.toFixed(6)}, ${lng.toFixed(6)}　誤差約 ${acc} 公尺\n🔍 查詢附近地點中...`;
 
     const [address, places] = await Promise.all([
@@ -184,83 +241,78 @@ async function initLocation(){
       `<a href="${mapLink}" target="_blank" style="color:#06C755;">在 Google Maps 上查看</a>`;
 
     if(places.length > 0){
-      const box = document.getElementById('nearbyBox');
-      const list = document.getElementById('nearbyList');
-      box.style.display = 'block';
-      list.innerHTML = places.map(p =>
+      document.getElementById('nearbyBox').style.display = 'block';
+      document.getElementById('nearbyList').innerHTML = places.map(p=>
         `<div class="nearby-item">🍽 ${p.name}<span>${p.type}</span></div>`
       ).join('');
     }
 
-    document.getElementById('btnIn').disabled = false;
-    document.getElementById('btnOut').disabled = false;
+    locationReady = true;
+    enableVisibleBtn();
   }catch(e){
     document.getElementById('locStatus').textContent = '⚠️ 定位失敗，請開啟定位權限後重新整理';
-    document.getElementById('btnIn').disabled = true;
-    document.getElementById('btnOut').disabled = true;
   }
 }
 
 async function doClock(type){
-  const btnIn = document.getElementById('btnIn');
+  const btnIn  = document.getElementById('btnIn');
   const btnOut = document.getElementById('btnOut');
   btnIn.disabled = true; btnOut.disabled = true;
 
   try{
-    // 每次打卡都重新定位，確保是打卡當下的位置
     const pos = await getLocation();
     currentPosition = pos;
-
-    // 打卡當下重新取一次地址
     const punchAddress = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
 
     const payload = {
-      userId: userProfile.userId,
-      name: userProfile.displayName,
-      type: type, // 'IN' or 'OUT'
+      userId:    userProfile.userId,
+      name:      userProfile.displayName,
+      type,
       timestamp: new Date().toISOString(),
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude,
-      accuracy: pos.coords.accuracy,
-      address: punchAddress || ''
+      lat:       pos.coords.latitude,
+      lng:       pos.coords.longitude,
+      accuracy:  pos.coords.accuracy,
+      address:   punchAddress || ''
     };
 
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // 避免 CORS preflight
-      body: JSON.stringify(payload)
+    const res    = await fetch(API_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify(payload)
     });
     const result = await res.json();
 
     if(result.success){
       showMsg(type === 'IN' ? '✅ 上班打卡成功！' : '✅ 下班打卡成功！', true);
+      // 打卡成功後重新查詢狀態，更新按鈕顯示
+      setTimeout(()=> checkTodayStatus(), 1500);
     } else {
-      showMsg('❌ 打卡失敗：' + (result.message || '未知錯誤'), false);
+      showMsg('❌ 打卡失敗：' + (result.message||'未知錯誤'), false);
+      enableVisibleBtn();
     }
   }catch(e){
     showMsg('❌ 打卡失敗：' + e.message, false);
-  }finally{
-    btnIn.disabled = false; btnOut.disabled = false;
+    enableVisibleBtn();
   }
 }
 
-document.getElementById('btnIn').addEventListener('click', ()=>doClock('IN'));
+document.getElementById('btnIn').addEventListener('click',  ()=>doClock('IN'));
 document.getElementById('btnOut').addEventListener('click', ()=>doClock('OUT'));
 
 async function main(){
   try{
     await liff.init({ liffId: LIFF_ID });
-    if(!liff.isLoggedIn()){
-      liff.login();
-      return;
-    }
+    if(!liff.isLoggedIn()){ liff.login(); return; }
     userProfile = await liff.getProfile();
 
     document.getElementById('profile').innerHTML = `
-      <img class="avatar" src="${userProfile.pictureUrl || ''}">
+      <img class="avatar" src="${userProfile.pictureUrl||''}">
       <div class="name">${userProfile.displayName}</div>
     `;
     document.getElementById('clockCard').style.display = 'block';
+
+    // 同時查狀態 + 初始化定位
+    await checkTodayStatus();
     initLocation();
   }catch(e){
     document.getElementById('profile').innerHTML =
