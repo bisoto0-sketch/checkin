@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>請假申請</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: #f4f5f7;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    text-align: center;
+    margin-top: 16px;
+  }
+  .avatar { width: 56px; height: 56px; border-radius: 50%; margin-bottom: 6px; }
+  .name { font-size: 16px; font-weight: 600; color: #222; }
+  .section-title {
+    font-size: 18px; font-weight: 700; color: #333;
+    margin: 0 0 20px; text-align: left;
+  }
+  .field { margin-bottom: 16px; text-align: left; }
+  .field label {
+    display: block; font-size: 13px; font-weight: 600;
+    color: #555; margin-bottom: 6px;
+  }
+  .field input[type="date"] {
+    width: 100%; padding: 12px 14px;
+    border: 1.5px solid #e0e0e0; border-radius: 10px;
+    font-size: 16px; color: #222; background: #fafafa;
+    outline: none; transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .field input[type="date"]:focus {
+    border-color: #06C755; background: #fff;
+  }
+  .days-chip {
+    display: none;
+    background: #f0faf4; border: 1px solid #b7e8c9;
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 14px; font-weight: 600; color: #06C755;
+    margin-bottom: 16px; text-align: center;
+  }
+  .days-chip.show { display: block; }
+  .days-chip.warn { background: #fdeeee; border-color: #f5c6c6; color: #e74c3c; }
+  .btn-submit {
+    width: 100%; padding: 16px; border: none;
+    border-radius: 12px; font-size: 18px; font-weight: 700;
+    color: #fff; background: #4A90D9; cursor: pointer;
+    margin-top: 4px; opacity: 0.5; transition: opacity 0.2s;
+  }
+  .btn-submit:not(:disabled) { opacity: 1; }
+  .msg { margin-top: 14px; padding: 12px; border-radius: 10px; font-size: 14px; display: none; }
+  .msg.ok  { background: #e6f9ee; color: #06C755; display: block; font-weight: 600; }
+  .msg.err { background: #fdeeee; color: #e74c3c; display: block; }
+  .loading { color: #999; font-size: 14px; }
+  .history-title { font-size: 14px; font-weight: 600; color: #888; text-align: left; margin-bottom: 10px; }
+  .history-item {
+    text-align: left; font-size: 13px; color: #444;
+    padding: 8px 12px; background: #f9f9f9; border-radius: 8px; margin-bottom: 6px;
+  }
+  .history-item .days { color: #4A90D9; font-weight: 600; float: right; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div id="profile"><div class="loading">載入中...</div></div>
+</div>
+
+<div class="card" id="mainCard" style="display:none;">
+  <div class="section-title">📅 請假申請</div>
+
+  <div class="field">
+    <label>開始日期</label>
+    <input type="date" id="startDate" onchange="calcDays()">
+  </div>
+
+  <div class="field">
+    <label>結束日期</label>
+    <input type="date" id="endDate" onchange="calcDays()">
+  </div>
+
+  <div class="days-chip" id="daysChip"></div>
+
+  <button class="btn-submit" id="btnSubmit" disabled onclick="doSubmit()">送出請假</button>
+  <div class="msg" id="msgBox"></div>
+</div>
+
+<div class="card" id="historyCard" style="display:none;">
+  <div class="history-title">📋 我的請假記錄（本月）</div>
+  <div id="historyList"><div class="loading">載入中...</div></div>
+</div>
+
+<script>
+const LIFF_ID  = "YOUR_LEAVE_LIFF_ID";  // ← 替換成你的 LIFF ID
+const API_URL  = "https://script.google.com/macros/s/AKfycbzYwVnpXFGSOGorojA4Axi8zNd6SVZNQKlyLrKLwPjoUDgP9wNubYDHxsCB5sb4XHB8/exec";
+
+let userProfile = null;
+
+// 設定最小日期為今天
+function setMinDates() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('startDate').min = today;
+  document.getElementById('endDate').min   = today;
+}
+
+function calcDays() {
+  const s = document.getElementById('startDate').value;
+  const e = document.getElementById('endDate').value;
+  const chip = document.getElementById('daysChip');
+  const btn  = document.getElementById('btnSubmit');
+
+  if (!s || !e) {
+    chip.className = 'days-chip'; btn.disabled = true; return;
+  }
+
+  const start = new Date(s);
+  const end   = new Date(e);
+  const diff  = Math.round((end - start) / 86400000) + 1;
+
+  if (diff <= 0) {
+    chip.className  = 'days-chip warn';
+    chip.textContent = '⚠️ 結束日期需晚於或等於開始日期';
+    chip.classList.add('show');
+    btn.disabled = true;
+    return;
+  }
+
+  chip.className  = 'days-chip show';
+  chip.textContent = `共請假 ${diff} 天（${s} ～ ${e}）`;
+  btn.disabled = false;
+}
+
+// 同步結束日期不能早於開始日期
+document.getElementById('startDate').addEventListener('change', function() {
+  document.getElementById('endDate').min = this.value;
+  if (document.getElementById('endDate').value < this.value) {
+    document.getElementById('endDate').value = this.value;
+  }
+  calcDays();
+});
+
+function showMsg(text, ok) {
+  const box = document.getElementById('msgBox');
+  box.textContent = text;
+  box.className = 'msg ' + (ok ? 'ok' : 'err');
+  if (ok) setTimeout(() => { box.className = 'msg'; }, 5000);
+}
+
+async function doSubmit() {
+  const s = document.getElementById('startDate').value;
+  const e = document.getElementById('endDate').value;
+  if (!s || !e) return;
+
+  const days = Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
+
+  document.getElementById('btnSubmit').disabled = true;
+  document.getElementById('btnSubmit').textContent = '送出中...';
+
+  try {
+    const payload = {
+      type:      'LEAVE',
+      userId:    userProfile.userId,
+      name:      userProfile.displayName,
+      startDate: s,
+      endDate:   e,
+      days:      days,
+      timestamp: new Date().toISOString()
+    };
+
+    const res    = await fetch(API_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify(payload)
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      showMsg(`✅ 請假申請成功！${s} ～ ${e}（共 ${days} 天）`, true);
+      document.getElementById('startDate').value = '';
+      document.getElementById('endDate').value   = '';
+      document.getElementById('daysChip').className = 'days-chip';
+      document.getElementById('btnSubmit').textContent = '送出請假';
+      loadHistory();
+    } else {
+      showMsg('❌ 送出失敗：' + (result.message || '未知錯誤'), false);
+      document.getElementById('btnSubmit').disabled = false;
+      document.getElementById('btnSubmit').textContent = '送出請假';
+    }
+  } catch(e) {
+    showMsg('❌ 網路錯誤：' + e.message, false);
+    document.getElementById('btnSubmit').disabled = false;
+    document.getElementById('btnSubmit').textContent = '送出請假';
+  }
+}
+
+async function loadHistory() {
+  try {
+    const month = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const res = await fetch(`${API_URL}?action=leaves&userId=${encodeURIComponent(userProfile.userId)}&month=${month}`, { credentials: 'omit' });
+    const result = await res.json();
+    const card = document.getElementById('historyCard');
+    const list = document.getElementById('historyList');
+
+    if (result.success && result.leaves && result.leaves.length > 0) {
+      card.style.display = 'block';
+      list.innerHTML = result.leaves.map(l =>
+        `<div class="history-item">
+          📅 ${l.startDate} ～ ${l.endDate}
+          <span class="days">${l.days} 天</span>
+        </div>`
+      ).join('');
+    } else {
+      card.style.display = 'none';
+    }
+  } catch(e) {
+    document.getElementById('historyCard').style.display = 'none';
+  }
+}
+
+async function main() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    userProfile = await liff.getProfile();
+
+    document.getElementById('profile').innerHTML = `
+      <img class="avatar" src="${userProfile.pictureUrl || ''}">
+      <div class="name">${userProfile.displayName}</div>
+    `;
+    document.getElementById('mainCard').style.display = 'block';
+    setMinDates();
+    loadHistory();
+  } catch(e) {
+    document.getElementById('profile').innerHTML =
+      `<div style="color:#e74c3c;">初始化失敗：${e.message}</div>`;
+  }
+}
+
+main();
+</script>
+</body>
+</html>

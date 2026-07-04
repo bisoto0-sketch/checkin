@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>代墊／付款申請</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: #f4f5f7;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    text-align: center;
+    margin-top: 16px;
+  }
+  .avatar { width: 56px; height: 56px; border-radius: 50%; margin-bottom: 6px; }
+  .name { font-size: 16px; font-weight: 600; color: #222; }
+  .section-title {
+    font-size: 18px; font-weight: 700; color: #333;
+    margin: 0 0 20px; text-align: left;
+  }
+  .field { margin-bottom: 16px; text-align: left; }
+  .field label {
+    display: block; font-size: 13px; font-weight: 600;
+    color: #555; margin-bottom: 6px;
+  }
+  .field select, .field input, .field textarea {
+    width: 100%; padding: 12px 14px;
+    border: 1.5px solid #e0e0e0; border-radius: 10px;
+    font-size: 16px; color: #222; background: #fafafa;
+    outline: none; transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .field select:focus, .field input:focus, .field textarea:focus {
+    border-color: #06C755; background: #fff;
+  }
+  .field textarea { height: 80px; resize: none; }
+  .type-btns { display: flex; gap: 10px; }
+  .type-btn {
+    flex: 1; padding: 12px 8px; border: 2px solid #e0e0e0;
+    border-radius: 10px; font-size: 15px; font-weight: 600;
+    color: #888; background: #fafafa; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .type-btn.selected { border-color: #06C755; color: #06C755; background: #f0faf4; }
+  .amount-wrap { position: relative; }
+  .amount-wrap span {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    font-size: 16px; color: #555; font-weight: 600;
+  }
+  .amount-wrap input { padding-left: 32px; }
+  .btn-submit {
+    width: 100%; padding: 16px; border: none;
+    border-radius: 12px; font-size: 18px; font-weight: 700;
+    color: #fff; background: #06C755; cursor: pointer;
+    margin-top: 4px; opacity: 0.5; transition: opacity 0.2s;
+  }
+  .btn-submit:not(:disabled) { opacity: 1; }
+  .msg { margin-top: 14px; padding: 12px; border-radius: 10px; font-size: 14px; display: none; }
+  .msg.ok  { background: #e6f9ee; color: #06C755; display: block; font-weight: 600; }
+  .msg.err { background: #fdeeee; color: #e74c3c; display: block; }
+  .loading { color: #999; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div id="profile"><div class="loading">載入中...</div></div>
+</div>
+
+<div class="card" id="mainCard" style="display:none;">
+  <div class="section-title">💰 代墊／付款申請</div>
+
+  <div class="field">
+    <label>申請類型</label>
+    <div class="type-btns">
+      <button class="type-btn selected" id="btnTypeAdvance" onclick="selectType('advance')">代墊</button>
+      <button class="type-btn" id="btnTypePayment" onclick="selectType('payment')">拿貨付款</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>金額（元）</label>
+    <div class="amount-wrap">
+      <span>$</span>
+      <input type="number" id="amount" placeholder="0" min="0" step="1" inputmode="numeric">
+    </div>
+  </div>
+
+  <div class="field">
+    <label>說明／備註</label>
+    <textarea id="note" placeholder="例如：購買辦公室文具、代付廠商貨款..."></textarea>
+  </div>
+
+  <button class="btn-submit" id="btnSubmit" disabled onclick="doSubmit()">送出申請</button>
+  <div class="msg" id="msgBox"></div>
+</div>
+
+<script>
+const LIFF_ID  = "YOUR_EXPENSE_LIFF_ID";  // ← 替換成你的 LIFF ID
+const API_URL  = "https://script.google.com/macros/s/AKfycbzYwVnpXFGSOGorojA4Axi8zNd6SVZNQKlyLrKLwPjoUDgP9wNubYDHxsCB5sb4XHB8/exec";
+
+let userProfile = null;
+let selectedType = 'advance';
+
+function selectType(type) {
+  selectedType = type;
+  document.getElementById('btnTypeAdvance').classList.toggle('selected', type === 'advance');
+  document.getElementById('btnTypePayment').classList.toggle('selected', type === 'payment');
+  checkReady();
+}
+
+document.getElementById('amount').addEventListener('input', checkReady);
+document.getElementById('note').addEventListener('input', checkReady);
+
+function checkReady() {
+  const amount = parseFloat(document.getElementById('amount').value);
+  document.getElementById('btnSubmit').disabled = !(amount > 0);
+}
+
+function showMsg(text, ok) {
+  const box = document.getElementById('msgBox');
+  box.textContent = text;
+  box.className = 'msg ' + (ok ? 'ok' : 'err');
+  if (ok) setTimeout(() => { box.className = 'msg'; }, 5000);
+}
+
+async function doSubmit() {
+  const amount = parseFloat(document.getElementById('amount').value);
+  const note   = document.getElementById('note').value.trim();
+  if (!amount || amount <= 0) return;
+
+  document.getElementById('btnSubmit').disabled = true;
+  document.getElementById('btnSubmit').textContent = '送出中...';
+
+  try {
+    const payload = {
+      type:      'EXPENSE',
+      userId:    userProfile.userId,
+      name:      userProfile.displayName,
+      expType:   selectedType === 'advance' ? '代墊' : '拿貨付款',
+      amount:    amount,
+      note:      note,
+      timestamp: new Date().toISOString()
+    };
+
+    const res    = await fetch(API_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify(payload)
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      showMsg(`✅ 申請成功！已記錄 $${amount} 元（${payload.expType}）`, true);
+      document.getElementById('amount').value = '';
+      document.getElementById('note').value   = '';
+      document.getElementById('btnSubmit').textContent = '送出申請';
+      checkReady();
+    } else {
+      showMsg('❌ 送出失敗：' + (result.message || '未知錯誤'), false);
+      document.getElementById('btnSubmit').disabled = false;
+      document.getElementById('btnSubmit').textContent = '送出申請';
+    }
+  } catch(e) {
+    showMsg('❌ 網路錯誤：' + e.message, false);
+    document.getElementById('btnSubmit').disabled = false;
+    document.getElementById('btnSubmit').textContent = '送出申請';
+  }
+}
+
+async function main() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    userProfile = await liff.getProfile();
+
+    document.getElementById('profile').innerHTML = `
+      <img class="avatar" src="${userProfile.pictureUrl || ''}">
+      <div class="name">${userProfile.displayName}</div>
+    `;
+    document.getElementById('mainCard').style.display = 'block';
+  } catch(e) {
+    document.getElementById('profile').innerHTML =
+      `<div style="color:#e74c3c;">初始化失敗：${e.message}</div>`;
+  }
+}
+
+main();
+</script>
+</body>
+</html>

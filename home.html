@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>員工系統</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: linear-gradient(160deg, #06C755 0%, #04a344 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 0 40px;
+  }
+
+  /* Header */
+  .header {
+    width: 100%;
+    max-width: 420px;
+    padding: 40px 24px 24px;
+    text-align: center;
+    color: #fff;
+  }
+  .avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.8);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    margin-bottom: 10px;
+  }
+  .greeting { font-size: 13px; color: rgba(255,255,255,0.8); margin-bottom: 2px; }
+  .name { font-size: 20px; font-weight: 700; color: #fff; }
+
+  /* Menu card */
+  .menu-card {
+    background: #fff;
+    border-radius: 24px 24px 16px 16px;
+    width: calc(100% - 32px);
+    max-width: 420px;
+    padding: 28px 20px 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  .menu-title {
+    font-size: 13px; font-weight: 600; color: #aaa;
+    letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 16px; text-align: center;
+  }
+
+  /* Feature grid */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .feat-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 10px 16px;
+    border-radius: 16px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.15s, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .feat-btn:active { transform: scale(0.96); }
+  .feat-btn .icon { font-size: 36px; margin-bottom: 8px; line-height: 1; }
+  .feat-btn .label { font-size: 14px; font-weight: 700; }
+  .feat-btn .sub   { font-size: 11px; margin-top: 3px; opacity: 0.7; }
+
+  /* Colors */
+  .btn-checkin  { background: #e8f9f0; color: #06C755; }
+  .btn-record   { background: #e8f4fd; color: #2196F3; }
+  .btn-expense  { background: #fff3e0; color: #FF8C00; }
+  .btn-leave    { background: #fde8e8; color: #E53935; }
+  .btn-warehouse { background: #f3e8fd; color: #8E24AA; grid-column: 1 / -1; flex-direction: row; gap: 14px; padding: 18px 24px; justify-content: flex-start; }
+  .btn-warehouse .icon { font-size: 32px; margin-bottom: 0; }
+  .btn-warehouse .text { text-align: left; }
+
+  .loading { color: rgba(255,255,255,0.8); font-size: 14px; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div id="profile"><div class="loading">載入中...</div></div>
+</div>
+
+<div class="menu-card" id="menuCard" style="display:none;">
+  <div class="menu-title">選擇功能</div>
+  <div class="grid">
+    <!-- 打卡 -->
+    <a class="feat-btn btn-checkin" href="https://liff.line.me/2010558375-DIVGLcgr">
+      <div class="icon">🕐</div>
+      <div class="label">上下班打卡</div>
+      <div class="sub">IN / OUT</div>
+    </a>
+    <!-- 打卡紀錄 -->
+    <a class="feat-btn btn-record" href="https://liff.line.me/2010558375-DIVGLcgr">
+      <div class="icon">📊</div>
+      <div class="label">打卡紀錄</div>
+      <div class="sub">月報表</div>
+    </a>
+    <!-- 代墊付款 -->
+    <a class="feat-btn btn-expense" href="https://liff.line.me/2010558375-T79P6b88">
+      <div class="icon">💰</div>
+      <div class="label">代墊申請</div>
+      <div class="sub">付款紀錄</div>
+    </a>
+    <!-- 請假 -->
+    <a class="feat-btn btn-leave" href="https://liff.line.me/2010558375-TdvwXXsk">
+      <div class="icon">📅</div>
+      <div class="label">請假申請</div>
+      <div class="sub">假別申請</div>
+    </a>
+    <!-- 倉庫 (全寬) -->
+    <a class="feat-btn btn-warehouse" id="btnWarehouse" href="#">
+      <div class="icon">🏭</div>
+      <div class="text">
+        <div class="label">倉庫位置配置</div>
+        <div class="sub">查詢 / 新增 / 更新商品位置</div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<script>
+// ── LIFF IDs ──
+const HOME_LIFF_ID      = "請填入首頁LIFF_ID";
+const CHECKIN_LIFF_URL  = "https://liff.line.me/2010558375-DIVGLcgr";
+const RECORD_LIFF_URL   = "https://liff.line.me/2010558375-DIVGLcgr"; // monthly-report 若有獨立 LIFF 可換
+const EXPENSE_LIFF_URL  = "https://liff.line.me/2010558375-T79P6b88";
+const LEAVE_LIFF_URL    = "https://liff.line.me/2010558375-TdvwXXsk";
+const WAREHOUSE_LIFF_URL = "https://liff.line.me/請填入倉庫LIFF_ID"; // 建立後填入
+
+// 先等 LIFF 初始化完才設定連結（確保 in-app browser 內跳轉）
+function setupLinks() {
+  const links = {
+    '.btn-checkin':   CHECKIN_LIFF_URL,
+    '.btn-record':    RECORD_LIFF_URL,
+    '.btn-expense':   EXPENSE_LIFF_URL,
+    '.btn-leave':     LEAVE_LIFF_URL,
+  };
+  Object.entries(links).forEach(([sel, url]) => {
+    const el = document.querySelector(sel);
+    if (el) el.href = url;
+  });
+  document.getElementById('btnWarehouse').href = WAREHOUSE_LIFF_URL;
+}
+
+async function main() {
+  try {
+    await liff.init({ liffId: HOME_LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    const profile = await liff.getProfile();
+
+    const now  = new Date();
+    const hour = now.getHours();
+    const greet = hour < 12 ? '早安' : hour < 18 ? '午安' : '晚安';
+
+    document.getElementById('profile').innerHTML = `
+      <img class="avatar" src="${profile.pictureUrl || ''}">
+      <div class="greeting">${greet}，</div>
+      <div class="name">${profile.displayName}</div>
+    `;
+    document.getElementById('menuCard').style.display = 'block';
+    setupLinks();
+  } catch(e) {
+    document.getElementById('profile').innerHTML =
+      `<div class="loading" style="color:#fff;">初始化失敗：${e.message}</div>`;
+  }
+}
+
+main();
+</script>
+</body>
+</html>
