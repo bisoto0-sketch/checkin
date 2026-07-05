@@ -70,10 +70,21 @@
   .loading { color: #999; font-size: 14px; }
   .history-title { font-size: 14px; font-weight: 600; color: #888; text-align: left; margin-bottom: 10px; }
   .history-item {
-    text-align: left; font-size: 13px; color: #444;
-    padding: 8px 12px; background: #f9f9f9; border-radius: 8px; margin-bottom: 6px;
+    text-align: left; border: 1px solid #eee; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px; background: #fafafa;
   }
-  .history-item .days { color: #4A90D9; font-weight: 600; float: right; }
+  .item-main { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .item-date { font-size: 13px; color: #333; font-weight: 600; }
+  .item-days {
+    font-size: 12px; font-weight: 700; color: #4A90D9;
+    background: #e8f4fd; border: 1px solid #b3d9f5;
+    border-radius: 6px; padding: 2px 8px;
+  }
+  .item-footer { display: flex; justify-content: flex-end; }
+  .btn-delete {
+    font-size: 12px; padding: 3px 10px; border: 1px solid #f5c6c6;
+    border-radius: 6px; background: #fdeeee; color: #e74c3c; cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -219,17 +230,45 @@ async function loadHistory() {
 
     if (result.success && result.leaves && result.leaves.length > 0) {
       card.style.display = 'block';
-      list.innerHTML = result.leaves.map(l =>
-        `<div class="history-item">
-          📅 ${l.startDate} ～ ${l.endDate}
-          <span class="days">${l.days} 天</span>
-        </div>`
-      ).join('');
+      list.innerHTML = result.leaves.map(l => `
+        <div class="history-item">
+          <div class="item-main">
+            <span class="item-date">📅 ${l.startDate} ～ ${l.endDate}</span>
+            <span class="item-days">${l.days} 天</span>
+          </div>
+          <div class="item-footer">
+            <button class="btn-delete" onclick="deleteLeave('${l.timestamp}')">刪除</button>
+          </div>
+        </div>
+      `).join('');
     } else {
       card.style.display = 'none';
     }
   } catch(e) {
     document.getElementById('historyCard').style.display = 'none';
+  }
+}
+
+async function deleteLeave(timestamp) {
+  if (!confirm('確定要刪除這筆請假申請嗎？')) return;
+  try {
+    const res = await fetch(API_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify({
+        type:      'MARK_DELETE_LEAVE',
+        userId:    userProfile.userId,
+        timestamp: timestamp
+      })
+    });
+    const result = await res.json();
+    if (result.success) {
+      loadHistory();
+    } else {
+      alert('刪除失敗：' + (result.message || '未知錯誤'));
+    }
+  } catch(e) {
+    alert('刪除失敗：' + e.message);
   }
 }
 
