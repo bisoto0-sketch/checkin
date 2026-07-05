@@ -74,6 +74,26 @@
   .msg.ok  { background: #e6f9ee; color: #06C755; display: block; font-weight: 600; }
   .msg.err { background: #fdeeee; color: #e74c3c; display: block; }
   .loading { color: #999; font-size: 14px; }
+  /* 今日申請記錄 */
+  .history-title { font-size: 14px; font-weight: 600; color: #888; text-align: left; margin-bottom: 10px; }
+  .history-item {
+    text-align: left; border: 1px solid #eee; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px; background: #fafafa;
+  }
+  .item-main { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .item-type {
+    font-size: 12px; font-weight: 600; color: #06C755;
+    background: #f0faf4; border: 1px solid #b7e8c9;
+    border-radius: 6px; padding: 2px 8px;
+  }
+  .item-amount { font-size: 17px; font-weight: 700; color: #222; }
+  .item-note { font-size: 12px; color: #666; margin-bottom: 6px; }
+  .item-footer { display: flex; justify-content: space-between; align-items: center; }
+  .item-time { font-size: 11px; color: #aaa; }
+  .btn-delete {
+    font-size: 12px; padding: 3px 10px; border: 1px solid #f5c6c6;
+    border-radius: 6px; background: #fdeeee; color: #e74c3c; cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -110,11 +130,16 @@
   <div class="msg" id="msgBox"></div>
 </div>
 
+<div class="card" id="historyCard" style="display:none;">
+  <div class="history-title">📋 今日已送出的申請</div>
+  <div id="historyList"></div>
+</div>
+
 <script>
-const LIFF_ID  = "YOUR_EXPENSE_LIFF_ID";  // ← 替換成你的 LIFF ID
+const LIFF_ID  = "2010558375-Ezb5HBCR";
 const API_URL  = "https://script.google.com/macros/s/AKfycbzYwVnpXFGSOGorojA4Axi8zNd6SVZNQKlyLrKLwPjoUDgP9wNubYDHxsCB5sb4XHB8/exec";
 
-let userProfile = null;
+let userProfile  = null;
 let selectedType = 'advance';
 
 function selectType(type) {
@@ -171,6 +196,7 @@ async function doSubmit() {
       document.getElementById('note').value   = '';
       document.getElementById('btnSubmit').textContent = '送出申請';
       checkReady();
+      loadTodayExpenses();
     } else {
       showMsg('❌ 送出失敗：' + (result.message || '未知錯誤'), false);
       document.getElementById('btnSubmit').disabled = false;
@@ -180,6 +206,64 @@ async function doSubmit() {
     showMsg('❌ 網路錯誤：' + e.message, false);
     document.getElementById('btnSubmit').disabled = false;
     document.getElementById('btnSubmit').textContent = '送出申請';
+  }
+}
+
+async function loadTodayExpenses() {
+  try {
+    const date   = new Date().toISOString().split('T')[0];
+    const res    = await fetch(
+      `${API_URL}?action=expenses&userId=${encodeURIComponent(userProfile.userId)}&date=${date}`,
+      { credentials: 'omit' }
+    );
+    const result = await res.json();
+    const card   = document.getElementById('historyCard');
+    const list   = document.getElementById('historyList');
+
+    if (result.success && result.expenses && result.expenses.length > 0) {
+      card.style.display = 'block';
+      list.innerHTML = result.expenses.map(e => `
+        <div class="history-item">
+          <div class="item-main">
+            <span class="item-type">${e.expType}</span>
+            <span class="item-amount">$${e.amount}</span>
+          </div>
+          ${e.note ? `<div class="item-note">${e.note}</div>` : ''}
+          <div class="item-footer">
+            <span class="item-time">${e.time}</span>
+            <button class="btn-delete" onclick="deleteExpense('${e.timestamp}')">刪除</button>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      card.style.display = 'none';
+    }
+  } catch(e) {
+    document.getElementById('historyCard').style.display = 'none';
+  }
+}
+
+async function deleteExpense(timestamp) {
+  if (!confirm('確定要刪除這筆申請嗎？')) return;
+
+  try {
+    const res = await fetch(API_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify({
+        type:      'MARK_DELETE_EXPENSE',
+        userId:    userProfile.userId,
+        timestamp: timestamp
+      })
+    });
+    const result = await res.json();
+    if (result.success) {
+      loadTodayExpenses();
+    } else {
+      alert('刪除失敗：' + (result.message || '未知錯誤'));
+    }
+  } catch(e) {
+    alert('刪除失敗：' + e.message);
   }
 }
 
@@ -194,6 +278,7 @@ async function main() {
       <div class="name">${userProfile.displayName}</div>
     `;
     document.getElementById('mainCard').style.display = 'block';
+    loadTodayExpenses();
   } catch(e) {
     document.getElementById('profile').innerHTML =
       `<div style="color:#e74c3c;">初始化失敗：${e.message}</div>`;
