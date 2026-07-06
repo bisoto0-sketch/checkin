@@ -58,14 +58,35 @@
   .btn-out { background: #FF6B6B; }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .loc-info { font-size: 12px; color: #999; margin-top: 12px; line-height: 1.6; }
-  .nearby { margin-top: 12px; text-align: left; }
-  .nearby-title { font-size: 12px; color: #888; margin-bottom: 6px; }
-  .nearby-item { font-size: 13px; color: #444; padding: 6px 10px; background: #f9f9f9; border-radius: 8px; margin-bottom: 5px; }
-  .nearby-item span { color: #999; font-size: 11px; margin-left: 6px; }
   .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
   .msg.ok  { background: #e6f9ee; color: #06C755; display: block; }
   .msg.err { background: #fdeeee; color: #e74c3c; display: block; }
   .loading { font-size: 14px; color: #999; }
+  /* 假日加班切換 */
+  .holiday-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; padding: 10px 14px;
+    background: #fafafa; border-radius: 10px; border: 1.5px solid #eee;
+    transition: all 0.2s;
+  }
+  .holiday-row.active { background: #fff8e6; border-color: #ffd08a; }
+  .holiday-label { font-size: 14px; font-weight: 600; color: #555; }
+  .holiday-row.active .holiday-label { color: #cc7000; }
+  .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #ccc; border-radius: 24px; transition: 0.3s;
+  }
+  .slider:before {
+    content: ''; position: absolute;
+    width: 18px; height: 18px; left: 3px; bottom: 3px;
+    background: #fff; border-radius: 50%; transition: 0.3s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  input:checked + .slider { background: #FF8C00; }
+  input:checked + .slider:before { transform: translateX(20px); }
 </style>
 </head>
 <body>
@@ -83,16 +104,21 @@
 
   <div class="loc-status" id="locStatus">📍 定位中...</div>
 
+  <!-- 假日加班切換 -->
+  <div class="holiday-row" id="holidayRow">
+    <span class="holiday-label">🗓️ 假日加班</span>
+    <label class="switch">
+      <input type="checkbox" id="holidayCheck" onchange="updateHolidayUI()">
+      <span class="slider"></span>
+    </label>
+  </div>
+
   <!-- 防呆：只顯示符合狀態的按鈕 -->
   <button class="btn btn-in"  id="btnIn"  disabled>上班打卡</button>
   <button class="btn btn-out" id="btnOut" disabled style="display:none;">下班打卡</button>
 
   <div class="msg" id="msgBox"></div>
   <div class="loc-info" id="locInfo"></div>
-  <div class="nearby" id="nearbyBox" style="display:none;">
-    <div class="nearby-title">📍 附近餐廳／店家</div>
-    <div id="nearbyList"></div>
-  </div>
 </div>
 
 <script>
@@ -145,12 +171,12 @@ function applyStatus(status, inTime, outTime){
     bar.innerHTML        = `✅ 上班打卡時間：<strong>${inTime}</strong>`;
 
   } else if(status === 'out'){
-    // 今日已完成
-    btnIn.style.display  = 'none';
+    // 本次上下班完成，可繼續打下一輪（午休後再上班）
+    btnIn.style.display  = 'block';
     btnOut.style.display = 'none';
     bar.style.display    = 'block';
     bar.className        = 'status-bar done';
-    bar.innerHTML        = `🎉 今日打卡完成<br>上班 ${inTime} ／ 下班 ${outTime}`;
+    bar.innerHTML        = `✅ 上次紀錄：上班 ${inTime} ／ 下班 ${outTime}`;
   }
 
   if(locationReady) enableVisibleBtn();
@@ -184,20 +210,10 @@ function getLocation(){
   });
 }
 
-async function getNearbyPlaces(lat, lng){
-  try{
-    const query = `[out:json][timeout:10];
-node["amenity"~"restaurant|cafe|fast_food|food_court|bar|pub|bakery"](around:300,${lat},${lng});
-out 5;`;
-    const res  = await fetch('https://overpass-api.de/api/interpreter', { method:'POST', body:query });
-    const data = await res.json();
-    return (data.elements||[]).map(el=>{
-      const name = el.tags['name'] || el.tags['name:zh'] || '無名店家';
-      const type = el.tags['amenity'] || '';
-      const typeMap = { restaurant:'餐廳', cafe:'咖啡廳', fast_food:'速食', food_court:'美食街', bar:'酒吧', pub:'酒館', bakery:'烘焙' };
-      return { name, type: typeMap[type]||type };
-    });
-  }catch(e){ return []; }
+function updateHolidayUI(){
+  const row = document.getElementById('holidayRow');
+  const on  = document.getElementById('holidayCheck').checked;
+  row.classList.toggle('active', on);
 }
 
 async function reverseGeocode(lat, lng){
@@ -205,13 +221,12 @@ async function reverseGeocode(lat, lng){
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=zh-TW`;
     const res  = await fetch(url, { headers:{'Accept-Language':'zh-TW'} });
     const data = await res.json();
-    if(data && data.display_name){
-      const a   = data.address || {};
-      const place    = a.shop||a.amenity||a.building||a.tourism||'';
-      const road     = a.road||'';
+    if(data && data.address){
+      const a        = data.address;
+      const road     = a.road||a.pedestrian||a.footway||'';
       const district = a.suburb||a.neighbourhood||a.quarter||'';
       const city     = a.city||a.town||a.county||'';
-      const parts = [place,road,district,city].filter(Boolean);
+      const parts    = [road, district, city].filter(Boolean);
       return parts.length ? parts.join('・') : data.display_name.split(',').slice(0,3).join(',');
     }
   }catch(e){}
@@ -227,28 +242,15 @@ async function initLocation(){
     const acc = Math.round(pos.coords.accuracy);
 
     document.getElementById('locStatus').textContent = '📍 定位成功，可以打卡';
-    document.getElementById('locInfo').textContent   =
-      `座標: ${lat.toFixed(6)}, ${lng.toFixed(6)}　誤差約 ${acc} 公尺\n🔍 查詢附近地點中...`;
-
-    const [address, places] = await Promise.all([
-      reverseGeocode(lat, lng),
-      getNearbyPlaces(lat, lng)
-    ]);
-    const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
-    document.getElementById('locInfo').innerHTML =
-      `座標: ${lat.toFixed(6)}, ${lng.toFixed(6)}　誤差約 ${acc} 公尺<br>` +
-      `📌 ${address ? address : '無法取得地址'}<br>` +
-      `<a href="${mapLink}" target="_blank" style="color:#06C755;">在 Google Maps 上查看</a>`;
-
-    if(places.length > 0){
-      document.getElementById('nearbyBox').style.display = 'block';
-      document.getElementById('nearbyList').innerHTML = places.map(p=>
-        `<div class="nearby-item">🍽 ${p.name}<span>${p.type}</span></div>`
-      ).join('');
-    }
-
     locationReady = true;
     enableVisibleBtn();
+
+    // 背景查地址（不擋打卡）
+    const address = await reverseGeocode(lat, lng);
+    const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
+    document.getElementById('locInfo').innerHTML =
+      `📌 ${address || '無法取得地址'}　誤差約 ${acc} 公尺<br>` +
+      `<a href="${mapLink}" target="_blank" style="color:#06C755;font-size:11px;">在 Google Maps 查看</a>`;
   }catch(e){
     document.getElementById('locStatus').textContent = '⚠️ 定位失敗，請開啟定位權限後重新整理';
   }
@@ -264,6 +266,7 @@ async function doClock(type){
     currentPosition = pos;
     const punchAddress = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
 
+    const isHoliday = document.getElementById('holidayCheck').checked;
     const payload = {
       userId:    userProfile.userId,
       name:      userProfile.displayName,
@@ -272,7 +275,8 @@ async function doClock(type){
       lat:       pos.coords.latitude,
       lng:       pos.coords.longitude,
       accuracy:  pos.coords.accuracy,
-      address:   punchAddress || ''
+      address:   punchAddress || '',
+      isHoliday: isHoliday
     };
 
     const res    = await fetch(API_URL, {
