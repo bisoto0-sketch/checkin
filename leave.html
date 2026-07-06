@@ -220,6 +220,19 @@ async function doSubmit() {
   }
 }
 
+// 將任何日期格式統一轉成 YYYY-MM-DD
+function formatDate(s) {
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(s))) return String(s);
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+  return String(s);
+}
+
 async function loadHistory() {
   try {
     const month = new Date().toISOString().slice(0, 7); // YYYY-MM
@@ -230,17 +243,20 @@ async function loadHistory() {
 
     if (result.success && result.leaves && result.leaves.length > 0) {
       card.style.display = 'block';
-      list.innerHTML = result.leaves.map(l => `
-        <div class="history-item">
-          <div class="item-main">
-            <span class="item-date">📅 ${l.startDate} ～ ${l.endDate}</span>
-            <span class="item-days">${l.days} 天</span>
-          </div>
-          <div class="item-footer">
-            <button class="btn-delete" onclick="deleteLeave('${l.timestamp}')">刪除</button>
-          </div>
-        </div>
-      `).join('');
+      list.innerHTML = result.leaves.map(l => {
+        const sd = formatDate(l.startDate);
+        const ed = formatDate(l.endDate);
+        return `
+          <div class="history-item">
+            <div class="item-main">
+              <span class="item-date">📅 ${sd} ～ ${ed}</span>
+              <span class="item-days">${l.days} 天</span>
+            </div>
+            <div class="item-footer">
+              <button class="btn-delete" onclick="deleteLeave('${sd}','${ed}')">刪除</button>
+            </div>
+          </div>`;
+      }).join('');
     } else {
       card.style.display = 'none';
     }
@@ -249,7 +265,7 @@ async function loadHistory() {
   }
 }
 
-async function deleteLeave(timestamp) {
+async function deleteLeave(startDate, endDate) {
   if (!confirm('確定要刪除這筆請假申請嗎？')) return;
   try {
     const res = await fetch(API_URL, {
@@ -258,7 +274,9 @@ async function deleteLeave(timestamp) {
       body:    JSON.stringify({
         type:      'MARK_DELETE_LEAVE',
         userId:    userProfile.userId,
-        timestamp: timestamp
+        timestamp: new Date().toISOString(),
+        startDate: startDate,
+        endDate:   endDate
       })
     });
     const result = await res.json();
