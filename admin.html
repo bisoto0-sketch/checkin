@@ -279,13 +279,13 @@ async function loadLeaves() {
       .map(([name, leaves]) => {
         const rows = leaves.map(l =>
           `<div class="leave-item">
-            <span>📅 ${l.startDate} ～ ${l.endDate}</span>
-            <span style="color:#0f3460;font-weight:700;">${l.days} 天</span>
+            <span>📅 ${l.date} ${l.startTime}～${l.endTime}</span>
+            <span style="color:#0f3460;font-weight:700;">${l.hours} 時</span>
           </div>`
         ).join('');
-        const total = leaves.reduce((s, l) => s + Number(l.days), 0);
+        const total = Math.round(leaves.reduce((s, l) => s + Number(l.hours), 0) * 10) / 10;
         return `<div class="leave-card">
-          <div class="leave-name">👤 ${name}　<span style="font-size:12px;color:#aaa;">共 ${total} 天</span></div>
+          <div class="leave-name">👤 ${name}　<span style="font-size:12px;color:#aaa;">共 ${total} 小時</span></div>
           ${rows}
         </div>`;
       }).join('');
