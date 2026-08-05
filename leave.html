@@ -32,15 +32,15 @@ body {
   color: #555; margin-bottom: 6px;
 }
 .field input[type="date"],
-.field input[type="time"] {
+.field select {
   width: 100%; padding: 12px 14px;
   border: 1.5px solid #e0e0e0; border-radius: 10px;
   font-size: 16px; color: #222; background: #fafafa;
   outline: none; transition: border-color 0.2s;
-  -webkit-appearance: none;
+  -webkit-appearance: none; appearance: none;
 }
 .field input[type="date"]:focus,
-.field input[type="time"]:focus {
+.field select:focus {
   border-color: #06C755; background: #fff;
 }
 .time-row {
@@ -104,11 +104,15 @@ body {
   <div class="time-row">
     <div class="field">
       <label>開始時間</label>
-      <input type="time" id="startTime" onchange="calcHours()">
+      <select id="startTime" onchange="calcHours()">
+        <option value="">-- 選擇 --</option>
+      </select>
     </div>
     <div class="field">
       <label>結束時間</label>
-      <input type="time" id="endTime" onchange="calcHours()">
+      <select id="endTime" onchange="calcHours()">
+        <option value="">-- 選擇 --</option>
+      </select>
     </div>
   </div>
 
@@ -134,6 +138,16 @@ function setMinDate() {
   document.getElementById('leaveDate').min = today;
 }
 
+function buildHourOptions() {
+  const hours = [];
+  for (let h = 6; h <= 22; h++) {
+    hours.push(`<option value="${h}:00">${h} 點</option>`);
+  }
+  const opts = hours.join('');
+  document.getElementById('startTime').innerHTML = '<option value="">-- 選擇 --</option>' + opts;
+  document.getElementById('endTime').innerHTML   = '<option value="">-- 選擇 --</option>' + opts;
+}
+
 function calcHours() {
   const d  = document.getElementById('leaveDate').value;
   const s  = document.getElementById('startTime').value;
@@ -143,20 +157,19 @@ function calcHours() {
 
   if (!d || !s || !e) { chip.className = 'hours-chip'; btn.disabled = true; return; }
 
-  const [sh, sm] = s.split(':').map(Number);
-  const [eh, em] = e.split(':').map(Number);
-  const totalMin = (eh * 60 + em) - (sh * 60 + sm);
+  const sh = parseInt(s);
+  const eh = parseInt(e);
+  const diff = eh - sh;
 
-  if (totalMin <= 0) {
+  if (diff <= 0) {
     chip.className = 'hours-chip warn show';
     chip.textContent = '⚠️ 結束時間需晚於開始時間';
     btn.disabled = true;
     return;
   }
 
-  const hours = Math.round(totalMin / 60 * 10) / 10;
   chip.className = 'hours-chip show';
-  chip.textContent = `共請假 ${hours} 小時（${s} ～ ${e}）`;
+  chip.textContent = `共請假 ${diff} 小時（${sh} 點 ～ ${eh} 點）`;
   btn.disabled = false;
 }
 
@@ -173,9 +186,9 @@ async function doSubmit() {
   const e = document.getElementById('endTime').value;
   if (!d || !s || !e) return;
 
-  const [sh, sm] = s.split(':').map(Number);
-  const [eh, em] = e.split(':').map(Number);
-  const hours = Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 60 * 10) / 10;
+  const sh = parseInt(s);
+  const eh = parseInt(e);
+  const hours = eh - sh;
 
   document.getElementById('btnSubmit').disabled = true;
   document.getElementById('btnSubmit').textContent = '送出中...';
@@ -200,7 +213,7 @@ async function doSubmit() {
     const result = await res.json();
 
     if (result.success) {
-      showMsg(`✅ 請假申請成功！${d} ${s}～${e}（共 ${hours} 小時）`, true);
+      showMsg(`✅ 請假申請成功！${d} ${parseInt(s)}點～${parseInt(e)}點（共 ${hours} 小時）`, true);
       document.getElementById('leaveDate').value = '';
       document.getElementById('startTime').value = '';
       document.getElementById('endTime').value = '';
@@ -255,7 +268,7 @@ async function loadHistory() {
     <span class="item-date">📅 ${dt}</span>
     <span class="item-hours">${hrs} 小時</span>
   </div>
-  <div class="item-time">⏰ ${st} ～ ${et}</div>
+  <div class="item-time">⏰ ${parseInt(st)} 點 ～ ${parseInt(et)} 點</div>
   <div class="item-footer">
     <button class="btn-delete" onclick="deleteLeave('${dt}','${st}','${et}')">刪除</button>
   </div>
@@ -307,6 +320,7 @@ async function main() {
     `;
     document.getElementById('mainCard').style.display = 'block';
     setMinDate();
+    buildHourOptions();
     loadHistory();
   } catch(err) {
     document.getElementById('profile').innerHTML =
