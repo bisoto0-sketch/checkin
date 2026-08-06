@@ -10,59 +10,49 @@
 body {
   font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
   background: #f4f5f7;
-  margin: 0;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  margin: 0; padding: 20px;
+  display: flex; flex-direction: column; align-items: center;
   min-height: 100vh;
 }
 .card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px;
-  width: 100%;
-  max-width: 420px;
+  background: #fff; border-radius: 16px; padding: 24px;
+  width: 100%; max-width: 420px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-  text-align: center;
-  margin-top: 16px;
+  text-align: center; margin-top: 16px;
 }
 .avatar { width: 64px; height: 64px; border-radius: 50%; margin-bottom: 8px; }
 .name { font-size: 18px; font-weight: 600; color: #222; }
 .clock { font-size: 40px; font-weight: 700; margin: 16px 0 4px; color: #06C755; }
 .date { color: #888; font-size: 14px; margin-bottom: 16px; }
 .status-bar {
-  border-radius: 10px;
-  padding: 10px 14px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  font-weight: 600;
-  display: none;
-  line-height: 1.6;
+  border-radius: 10px; padding: 10px 14px;
+  margin-bottom: 16px; font-size: 14px; font-weight: 600;
+  display: none; line-height: 1.6;
 }
-.status-bar.in { background: #f0faf4; border: 1px solid #b7e8c9; color: #06C755; }
+.status-bar.in   { background: #f0faf4; border: 1px solid #b7e8c9; color: #06C755; }
 .status-bar.done { background: #e8f5e9; border: 1px solid #81c784; color: #2e7d32; }
 .loc-status { font-size: 13px; color: #555; margin-bottom: 16px; min-height: 18px; }
 .btn {
-  width: 100%;
-  padding: 16px;
-  border: none;
-  border-radius: 12px;
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 12px;
-  cursor: pointer;
+  width: 100%; padding: 16px; border: none;
+  border-radius: 12px; font-size: 18px; font-weight: 700;
+  color: #fff; margin-bottom: 12px; cursor: pointer;
 }
-.btn-in { background: #06C755; }
+.btn-in  { background: #06C755; }
 .btn-out { background: #FF6B6B; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* 補打今日下班（次要按鈕） */
+.btn-backfill-today {
+  width: 100%; padding: 11px; border: 1.5px solid #FF6B6B;
+  border-radius: 10px; font-size: 14px; font-weight: 600;
+  color: #FF6B6B; background: #fff8f8; cursor: pointer;
+  margin-bottom: 12px; display: none;
+}
+.btn-backfill-today:active { background: #ffe8e8; }
 .loc-info { font-size: 12px; color: #999; margin-top: 12px; line-height: 1.6; }
 .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
-.msg.ok { background: #e6f9ee; color: #06C755; display: block; }
+.msg.ok  { background: #e6f9ee; color: #06C755; display: block; }
 .msg.err { background: #fdeeee; color: #e74c3c; display: block; }
 .loading { font-size: 14px; color: #999; }
-
 /* 假日加班切換 */
 .holiday-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -89,7 +79,7 @@ body {
 input:checked + .slider { background: #FF8C00; }
 input:checked + .slider:before { transform: translateX(20px); }
 
-/* 補打卡 Modal */
+/* ── Modal（通用） ── */
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.65); z-index: 100;
@@ -100,39 +90,32 @@ input:checked + .slider:before { transform: translateX(20px); }
   background: #fff; border-radius: 18px; padding: 26px 22px;
   width: 100%; max-width: 360px; text-align: center;
 }
-.modal-icon { font-size: 36px; margin-bottom: 8px; }
+.modal-icon  { font-size: 36px; margin-bottom: 8px; }
 .modal-title { font-size: 17px; font-weight: 700; color: #333; margin-bottom: 6px; }
-.modal-sub {
-  font-size: 13px; color: #888; margin-bottom: 20px;
-  line-height: 1.6;
-}
+.modal-sub   { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.6; }
 .modal-field { text-align: left; margin-bottom: 18px; }
 .modal-field label {
-  display: block; font-size: 13px; font-weight: 600;
-  color: #555; margin-bottom: 6px;
+  display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px;
 }
 .modal-field select {
   width: 100%; padding: 12px 14px;
   border: 1.5px solid #e0e0e0; border-radius: 10px;
   font-size: 16px; color: #222; background: #fafafa;
-  outline: none;
-  -webkit-appearance: none; appearance: none;
+  outline: none; -webkit-appearance: none; appearance: none;
 }
 .modal-field select:focus { border-color: #FF6B6B; background: #fff; }
 .modal-btns { display: flex; gap: 10px; }
-.btn-skip {
+.btn-modal-cancel {
   flex: 1; padding: 14px; border: 1.5px solid #ddd;
   border-radius: 10px; font-size: 15px; font-weight: 600;
   color: #888; background: #fff; cursor: pointer;
 }
-.btn-skip:active { background: #f5f5f5; }
-.btn-backfill {
+.btn-modal-confirm {
   flex: 2; padding: 14px; border: none;
   border-radius: 10px; font-size: 15px; font-weight: 700;
   color: #fff; background: #FF6B6B; cursor: pointer;
 }
-.btn-backfill:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-backfill:not(:disabled):active { background: #e05555; }
+.btn-modal-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -143,14 +126,11 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 <div class="card" id="clockCard" style="display:none;">
   <div class="clock" id="clockTime">--:--:--</div>
-  <div class="date" id="clockDate">----/--/--</div>
+  <div class="date"  id="clockDate">----/--/--</div>
 
-  <!-- 打卡狀態提示 -->
   <div class="status-bar" id="statusBar"></div>
+  <div class="loc-status"  id="locStatus">📍 定位中...</div>
 
-  <div class="loc-status" id="locStatus">📍 定位中...</div>
-
-  <!-- 假日加班切換 -->
   <div class="holiday-row" id="holidayRow">
     <span class="holiday-label">🗓️ 假日加班</span>
     <label class="switch">
@@ -159,15 +139,18 @@ input:checked + .slider:before { transform: translateX(20px); }
     </label>
   </div>
 
-  <!-- 防呆：只顯示符合狀態的按鈕 -->
-  <button class="btn btn-in" id="btnIn" disabled>上班打卡</button>
+  <button class="btn btn-in"  id="btnIn"  disabled>上班打卡</button>
   <button class="btn btn-out" id="btnOut" disabled style="display:none;">下班打卡</button>
+  <!-- 同日補打下班（當 status=in 時顯示） -->
+  <button class="btn-backfill-today" id="btnBackfillToday" onclick="showTodayBackfill()">
+    🕐 忘記打下班卡？補打時間
+  </button>
 
-  <div class="msg" id="msgBox"></div>
+  <div class="msg"      id="msgBox"></div>
   <div class="loc-info" id="locInfo"></div>
 </div>
 
-<!-- 補打卡 Modal -->
+<!-- ── 跨日補打卡 Modal（昨日未下班 → 打今日上班前觸發）── -->
 <div id="backfillModal" class="modal-overlay" style="display:none;">
   <div class="modal-card">
     <div class="modal-icon">⚠️</div>
@@ -180,8 +163,27 @@ input:checked + .slider:before { transform: translateX(20px); }
       </select>
     </div>
     <div class="modal-btns">
-      <button class="btn-skip" onclick="skipBackfill()">略過</button>
-      <button class="btn-backfill" id="btnBackfill" onclick="submitBackfill()">補打下班卡</button>
+      <button class="btn-modal-cancel" onclick="skipBackfill()">略過</button>
+      <button class="btn-modal-confirm" id="btnBackfill" onclick="submitBackfill()">補打下班卡</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 同日補打下班 Modal（當天忘記打卡，晚上回家後補打）── -->
+<div id="todayBackfillModal" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-icon">🕐</div>
+    <div class="modal-title">補打今日下班卡</div>
+    <div class="modal-sub" id="todayBackfillSub"></div>
+    <div class="modal-field">
+      <label>實際下班時間</label>
+      <select id="todayBackfillTime">
+        <option value="">-- 選擇時間 --</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" onclick="closeTodayBackfill()">取消</button>
+      <button class="btn-modal-confirm" id="btnTodayBackfill" onclick="submitTodayBackfill()">確認補打</button>
     </div>
   </div>
 </div>
@@ -190,13 +192,14 @@ input:checked + .slider:before { transform: translateX(20px); }
 const LIFF_ID = "2010558375-DIVGLcgr";
 const API_URL = "https://script.google.com/macros/s/AKfycbzYwVnpXFGSOGorojA4Axi8zNd6SVZNQKlyLrKLwPjoUDgP9wNubYDHxsCB5sb4XHB8/exec";
 
-let currentPosition = null;
-let userProfile = null;
-let todayStatus = 'none'; // 'none' | 'in' | 'out'
-let locationReady = false;
+let currentPosition  = null;
+let userProfile      = null;
+let todayStatus      = 'none';
+let locationReady    = false;
+let currentInTime    = null; // 今日上班時間，補打下班用
 
-// 補打卡狀態
-let pendingBackfillDate = null;
+// 跨日補打狀態
+let pendingBackfillDate   = null;
 let pendingBackfillInTime = null;
 
 function pad(n){ return n.toString().padStart(2,'0'); }
@@ -218,26 +221,33 @@ function showMsg(text, ok){
   setTimeout(()=>{ box.className='msg'; }, 4000);
 }
 
-// 根據狀態決定顯示哪個按鈕
 function applyStatus(status, inTime, outTime){
-  todayStatus = status;
-  const btnIn  = document.getElementById('btnIn');
-  const btnOut = document.getElementById('btnOut');
-  const bar    = document.getElementById('statusBar');
+  todayStatus   = status;
+  currentInTime = inTime || null;
+
+  const btnIn          = document.getElementById('btnIn');
+  const btnOut         = document.getElementById('btnOut');
+  const btnBT          = document.getElementById('btnBackfillToday');
+  const bar            = document.getElementById('statusBar');
 
   if(status === 'none'){
     btnIn.style.display  = 'block';
     btnOut.style.display = 'none';
+    btnBT.style.display  = 'none';
     bar.style.display    = 'none';
+
   } else if(status === 'in'){
     btnIn.style.display  = 'none';
     btnOut.style.display = 'block';
+    btnBT.style.display  = 'block'; // ← 顯示補打今日下班按鈕
     bar.style.display    = 'block';
     bar.className        = 'status-bar in';
     bar.innerHTML        = `✅ 上班打卡時間：<strong>${inTime}</strong>`;
+
   } else if(status === 'out'){
     btnIn.style.display  = 'block';
     btnOut.style.display = 'none';
+    btnBT.style.display  = 'none';
     bar.style.display    = 'block';
     bar.className        = 'status-bar done';
     bar.innerHTML        = `✅ 上次紀錄：上班 ${inTime} ／ 下班 ${outTime}`;
@@ -275,18 +285,16 @@ function getLocation(){
 }
 
 function updateHolidayUI(){
-  const row = document.getElementById('holidayRow');
-  const on  = document.getElementById('holidayCheck').checked;
-  row.classList.toggle('active', on);
+  document.getElementById('holidayRow').classList.toggle('active', document.getElementById('holidayCheck').checked);
 }
 
 async function reverseGeocode(lat, lng){
   try{
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=zh-TW`;
+    const url  = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=zh-TW`;
     const res  = await fetch(url, { headers:{'Accept-Language':'zh-TW'} });
     const data = await res.json();
     if(data && data.address){
-      const a        = data.address;
+      const a = data.address;
       const road     = a.road||a.pedestrian||a.footway||'';
       const district = a.suburb||a.neighbourhood||a.quarter||'';
       const city     = a.city||a.town||a.county||'';
@@ -330,22 +338,20 @@ async function doClock(type){
     const punchAddress = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
 
     const isHoliday = document.getElementById('holidayCheck').checked;
-    const payload   = {
-      userId:    userProfile.userId,
-      name:      userProfile.displayName,
-      type,
-      timestamp: new Date().toISOString(),
-      lat:       pos.coords.latitude,
-      lng:       pos.coords.longitude,
-      accuracy:  pos.coords.accuracy,
-      address:   punchAddress || '',
-      isHoliday: isHoliday
-    };
-
-    const res    = await fetch(API_URL, {
+    const res       = await fetch(API_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body:    JSON.stringify(payload)
+      body:    JSON.stringify({
+        userId:    userProfile.userId,
+        name:      userProfile.displayName,
+        type,
+        timestamp: new Date().toISOString(),
+        lat:       pos.coords.latitude,
+        lng:       pos.coords.longitude,
+        accuracy:  pos.coords.accuracy,
+        address:   punchAddress || '',
+        isHoliday: isHoliday
+      })
     });
     const result = await res.json();
 
@@ -362,19 +368,20 @@ async function doClock(type){
   }
 }
 
-// ── 補打卡邏輯 ──
+// ══════════════════════════════════════
+// 跨日補打卡（隔天上班時觸發）
+// ══════════════════════════════════════
 
-function buildBackfillOptions(){
-  const sel  = document.getElementById('backfillTime');
+function buildHourOptions(selectId, fromH, toH){
+  const sel  = document.getElementById(selectId);
   let opts = '<option value="">-- 選擇時間 --</option>';
-  for(let h = 6; h <= 23; h++){
+  for(let h = fromH; h <= toH; h++){
     opts += `<option value="${h}:00">${h} 點</option>`;
   }
   sel.innerHTML = opts;
 }
 
 async function checkOpenPunch(){
-  // 回傳 true 表示有未下班記錄（已顯示 Modal），false 表示正常繼續打卡
   try{
     const res    = await fetch(`${API_URL}?action=open_punch&userId=${encodeURIComponent(userProfile.userId)}`);
     const result = await res.json();
@@ -383,13 +390,11 @@ async function checkOpenPunch(){
       pendingBackfillInTime = result.inTime;
       document.getElementById('backfillSub').textContent =
         `您在 ${result.date}（上班 ${result.inTime}）後尚未下班打卡，請先補打昨日下班時間，再繼續今日上班打卡。`;
-      buildBackfillOptions();
+      buildHourOptions('backfillTime', 6, 23);
       document.getElementById('backfillModal').style.display = 'flex';
       return true;
     }
-  }catch(e){
-    // 查詢失敗時不擋打卡
-  }
+  }catch(e){ /* 查詢失敗不擋打卡 */ }
   return false;
 }
 
@@ -402,17 +407,15 @@ async function submitBackfill(){
   const timeVal = document.getElementById('backfillTime').value;
   if(!timeVal){ alert('請選擇昨日下班時間'); return; }
 
-  const h      = parseInt(timeVal);
-  // 建立補打時間（Asia/Taipei +08:00）
-  const outTs  = new Date(pendingBackfillDate + 'T' + String(h).padStart(2,'0') + ':00:00+08:00');
+  const h   = parseInt(timeVal);
+  const outTs = new Date(pendingBackfillDate + 'T' + String(h).padStart(2,'0') + ':00:00+08:00');
 
-  const btn    = document.getElementById('btnBackfill');
-  btn.disabled = true;
-  btn.textContent = '補打中...';
+  const btn = document.getElementById('btnBackfill');
+  btn.disabled = true; btn.textContent = '補打中...';
 
   try{
-    const pos          = currentPosition;
-    const res          = await fetch(API_URL, {
+    const pos = currentPosition;
+    const res = await fetch(API_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain' },
       body:    JSON.stringify({
@@ -431,34 +434,93 @@ async function submitBackfill(){
 
     if(result.success){
       document.getElementById('backfillModal').style.display = 'none';
-      btn.disabled    = false;
-      btn.textContent = '補打下班卡';
+      btn.disabled = false; btn.textContent = '補打下班卡';
       showMsg(`✅ 補打 ${pendingBackfillDate} 下班打卡成功（${h} 點）`, true);
-      // 等 1 秒再打今日上班卡
       setTimeout(()=> doClock('IN'), 1200);
     } else {
-      btn.disabled    = false;
-      btn.textContent = '補打下班卡';
+      btn.disabled = false; btn.textContent = '補打下班卡';
       alert('補打失敗：' + (result.message || '未知錯誤'));
     }
   }catch(e){
-    btn.disabled    = false;
-    btn.textContent = '補打下班卡';
+    btn.disabled = false; btn.textContent = '補打下班卡';
     alert('補打失敗：' + e.message);
   }
 }
 
-// ── 按鈕事件 ──
+// ══════════════════════════════════════
+// 同日補打下班（當天忘記打，晚上回家補）
+// ══════════════════════════════════════
+
+function showTodayBackfill(){
+  const inH  = currentInTime ? parseInt(currentInTime.split(':')[0]) + 1 : 6;
+  const nowH = new Date().getHours();
+  const maxH = Math.max(nowH, inH); // 最多到現在這個小時
+
+  document.getElementById('todayBackfillSub').textContent =
+    `今日上班時間：${currentInTime}，請選擇實際下班時間`;
+  buildHourOptions('todayBackfillTime', inH, maxH);
+  document.getElementById('todayBackfillModal').style.display = 'flex';
+}
+
+function closeTodayBackfill(){
+  document.getElementById('todayBackfillModal').style.display = 'none';
+}
+
+async function submitTodayBackfill(){
+  const timeVal = document.getElementById('todayBackfillTime').value;
+  if(!timeVal){ alert('請選擇下班時間'); return; }
+
+  const h   = parseInt(timeVal);
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const outTs   = new Date(dateStr + 'T' + String(h).padStart(2,'0') + ':00:00+08:00');
+
+  const btn = document.getElementById('btnTodayBackfill');
+  btn.disabled = true; btn.textContent = '補打中...';
+
+  try{
+    const pos = currentPosition;
+    const res = await fetch(API_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify({
+        userId:    userProfile.userId,
+        name:      userProfile.displayName,
+        type:      'OUT',
+        timestamp: outTs.toISOString(),
+        lat:       pos ? pos.coords.latitude  : '',
+        lng:       pos ? pos.coords.longitude : '',
+        accuracy:  pos ? pos.coords.accuracy  : '',
+        address:   '補打卡',
+        isHoliday: false
+      })
+    });
+    const result = await res.json();
+
+    if(result.success){
+      closeTodayBackfill();
+      btn.disabled = false; btn.textContent = '確認補打';
+      showMsg(`✅ 補打今日下班打卡成功（${h} 點）`, true);
+      setTimeout(()=> checkTodayStatus(), 1500);
+    } else {
+      btn.disabled = false; btn.textContent = '確認補打';
+      alert('補打失敗：' + (result.message || '未知錯誤'));
+    }
+  }catch(e){
+    btn.disabled = false; btn.textContent = '確認補打';
+    alert('補打失敗：' + e.message);
+  }
+}
+
+// ══════════════════════════════════════
+// 按鈕事件
+// ══════════════════════════════════════
 
 document.getElementById('btnIn').addEventListener('click', async () => {
-  // 上班前先檢查是否有跨日未下班記錄
   document.getElementById('btnIn').disabled  = true;
   document.getElementById('btnOut').disabled = true;
   const hasOpen = await checkOpenPunch();
-  if(!hasOpen){
-    doClock('IN');
-  }
-  // 若 hasOpen = true，由 Modal 的按鈕負責後續流程
+  if(!hasOpen) doClock('IN');
 });
 
 document.getElementById('btnOut').addEventListener('click', ()=> doClock('OUT'));
