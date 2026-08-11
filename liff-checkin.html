@@ -175,28 +175,6 @@ input:checked + .slider:before { transform: translateX(20px); }
   </div>
 </div>
 
-<!-- ── 下班打卡時間選擇 Modal ── -->
-<div id="outTimeModal" class="modal-overlay" style="display:none;">
-  <div class="modal-card">
-    <div class="modal-icon">🕐</div>
-    <div class="modal-title">選擇下班時間</div>
-    <div class="modal-sub" id="outTimeSub">選擇實際下班時間（預設為現在）</div>
-    <div class="modal-field">
-      <label>下班時間</label>
-      <div class="time-row">
-        <select id="outH"><option value="">時</option></select>
-        <span class="unit">點</span>
-        <select id="outM"><option value="">分</option></select>
-        <span class="unit">分</span>
-      </div>
-    </div>
-    <div class="modal-btns">
-      <button class="btn-modal-cancel" onclick="closeOutModal()">取消</button>
-      <button class="btn-modal-confirm" id="btnOutConfirm" onclick="submitOutPunch()">下班打卡</button>
-    </div>
-  </div>
-</div>
-
 <!-- ── 同日補打 Modal（任何時間、上班或下班皆可）── -->
 <div id="todayBackfillModal" class="modal-overlay" style="display:none;">
   <div class="modal-card">
@@ -442,37 +420,6 @@ async function doClock(type, customTimestamp){
 }
 
 // ══════════════════════════════════════
-// 下班打卡 → 先選時間
-// ══════════════════════════════════════
-
-function showOutModal(){
-  const now = new Date();
-  buildTimeSelects('outH','outM', 6, 23, now.getHours(), Math.floor(now.getMinutes()/5)*5);
-  document.getElementById('outTimeSub').textContent =
-    currentInTime ? `今日上班時間：${currentInTime}，請確認下班時間` : '請選擇下班時間';
-  document.getElementById('outTimeModal').style.display = 'flex';
-}
-
-function closeOutModal(){
-  document.getElementById('outTimeModal').style.display = 'none';
-  enableVisibleBtn();
-}
-
-async function submitOutPunch(){
-  const ts = getTimestampFromSelects('outH','outM', todayStr());
-  if(!ts){ alert('請選擇下班時間'); return; }
-  const h = parseInt(document.getElementById('outH').value);
-  const m = parseInt(document.getElementById('outM').value);
-
-  const btn = document.getElementById('btnOutConfirm');
-  btn.disabled = true; btn.textContent = '打卡中...';
-  document.getElementById('outTimeModal').style.display = 'none';
-
-  await doClock('OUT', ts);
-  btn.disabled = false; btn.textContent = '下班打卡';
-}
-
-// ══════════════════════════════════════
 // 跨日補打卡（昨天忘記下班打）
 // ══════════════════════════════════════
 
@@ -634,12 +581,8 @@ document.getElementById('btnIn').addEventListener('click', async () => {
   if(!hasOpen) doClock('IN');
 });
 
-// 下班打卡 → 開啟時間選擇 Modal
-document.getElementById('btnOut').addEventListener('click', ()=>{
-  document.getElementById('btnIn').disabled  = true;
-  document.getElementById('btnOut').disabled = true;
-  showOutModal();
-});
+// 下班打卡 → 直接以現在時間打卡
+document.getElementById('btnOut').addEventListener('click', ()=> doClock('OUT'));
 
 async function main(){
   try{
