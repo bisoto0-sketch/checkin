@@ -209,6 +209,9 @@ const LIFF_ID = "2010558375-DIVGLcgr";
 const API_URL = "https://script.google.com/macros/s/AKfycbzYwVnpXFGSOGorojA4Axi8zNd6SVZNQKlyLrKLwPjoUDgP9wNubYDHxsCB5sb4XHB8/exec";
 
 let currentPosition  = null;
+let cachedAddress    = null; // 頁面載入時快取，打卡直接用
+let openPunchPromise = null; // 頁面載入時預查跨日補打
+const APP_VERSION    = 'v2.1-fast';
 let userProfile      = null;
 let todayStatus      = 'none';
 let locationReady    = false;
@@ -368,6 +371,7 @@ async function initLocation(){
     enableVisibleBtn();
 
     const address = await reverseGeocode(lat, lng);
+    cachedAddress = address; // 快取地址，打卡直接用
     document.getElementById('locInfo').innerHTML =
       `📌 ${address || '無法取得地址'} 誤差約 ${acc} 公尺<br>` +
       `<a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" style="color:#06C755;font-size:11px;">在 Google Maps 查看</a>`;
@@ -383,11 +387,18 @@ async function doClock(type, customTimestamp){
   const btnOut = document.getElementById('btnOut');
   btnIn.disabled = true; btnOut.disabled = true;
 
+  showMsg('⏳ 打卡中...', true);   // 立刻給回饋
+
+  // 直接用頁面載入時快取的定位與地址，不重新抓 GPS 或打 Nominatim
+  const pos = currentPosition;
+  if(!pos){
+    showMsg('❌ 尚未定位完成，請稍後再試', false);
+    enableVisibleBtn();
+    return;
+  }
+
   try{
-    const pos          = await getLocation();
-    currentPosition    = pos;
-    const punchAddress = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
-    const isHoliday    = document.getElementById('holidayCheck').checked;
+    const isHoliday = document.getElementById('holidayCheck').checked;
 
     const res = await fetch(API_URL, {
       method:  'POST',
@@ -400,7 +411,7 @@ async function doClock(type, customTimestamp){
         lat:       pos.coords.latitude,
         lng:       pos.coords.longitude,
         accuracy:  pos.coords.accuracy,
-        address:   punchAddress || '',
+        address:   cachedAddress || '',
         isHoliday: isHoliday
       })
     });
@@ -423,11 +434,18 @@ async function doClock(type, customTimestamp){
 // 跨日補打卡（昨天忘記下班打）
 // ══════════════════════════════════════
 
+// 頁面載入時就先發出查詢，按鈕點下去時通常已經回來了
+async function fetchOpenPunch(){
+  try{
+    const res = await fetch(`${API_URL}?action=open_punch&userId=${encodeURIComponent(userProfile.userId)}`);
+    return await res.json();
+  }catch(e){ return null; }
+}
+
 async function checkOpenPunch(){
   try{
-    const res    = await fetch(`${API_URL}?action=open_punch&userId=${encodeURIComponent(userProfile.userId)}`);
-    const result = await res.json();
-    if(result.success && result.hasOpenPunch){
+    const result = await (openPunchPromise || fetchOpenPunch());
+    if(result && result.success && result.hasOpenPunch){
       pendingBackfillDate   = result.date;
       pendingBackfillInTime = result.inTime;
       document.getElementById('backfillSub').textContent =
@@ -592,10 +610,12 @@ async function main(){
     document.getElementById('profile').innerHTML = `
       <img class="avatar" src="${userProfile.pictureUrl||''}">
       <div class="name">${userProfile.displayName}</div>
+      <div style="font-size:10px;color:#ccc;margin-top:2px;">${APP_VERSION}</div>
     `;
     document.getElementById('clockCard').style.display = 'block';
+    initLocation();                 // GPS 最慢，最先啟動（不 await）
+    openPunchPromise = fetchOpenPunch();  // 預先查跨日補打，按鈕時不用再等
     await checkTodayStatus();
-    initLocation();
   }catch(e){
     document.getElementById('profile').innerHTML =
       `<div style="color:#e74c3c;">初始化失敗：${e.message}</div>`;

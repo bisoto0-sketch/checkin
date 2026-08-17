@@ -15,7 +15,7 @@ body {
   min-height: 100vh;
 }
 .card {
-  background: #fff; border-radius: 16px; padding: 24px;
+  background: #fff; border-radius: 16px; padding: 20px;
   width: 100%; max-width: 420px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.08);
   text-align: center; margin-top: 16px;
@@ -24,14 +24,13 @@ body {
 .name { font-size: 16px; font-weight: 600; color: #222; }
 .section-title {
   font-size: 18px; font-weight: 700; color: #333;
-  margin: 0 0 20px; text-align: left;
+  margin: 0 0 16px; text-align: left;
 }
 .field { margin-bottom: 16px; text-align: left; }
 .field label {
   display: block; font-size: 13px; font-weight: 600;
   color: #555; margin-bottom: 6px;
 }
-.field input[type="date"],
 .field select {
   width: 100%; padding: 12px 14px;
   border: 1.5px solid #e0e0e0; border-radius: 10px;
@@ -39,20 +38,76 @@ body {
   outline: none; transition: border-color 0.2s;
   -webkit-appearance: none; appearance: none;
 }
-.field input[type="date"]:focus,
-.field select:focus {
-  border-color: #06C755; background: #fff;
-}
-.time-row {
-  display: flex; gap: 12px;
-}
+.field select:focus { border-color: #4A90D9; background: #fff; }
+.time-row { display: flex; gap: 12px; }
 .time-row .field { flex: 1; }
+
+/* ── 月曆 ── */
+.cal-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.cal-bar button {
+  border: none; background: #eef2f6; border-radius: 8px;
+  width: 34px; height: 34px; font-size: 17px; cursor: pointer; color: #444;
+}
+.cal-month { font-size: 15px; font-weight: 700; color: #333; }
+
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.cal-head {
+  font-size: 11px; font-weight: 700; color: #999;
+  padding: 4px 0;
+}
+.cal-head.sun, .cal-head.sat { color: #e07a7a; }
+
+.cal-cell {
+  min-height: 48px; border-radius: 8px;
+  background: #fafafa; border: 1.5px solid transparent;
+  padding: 3px 2px 2px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center;
+  transition: all 0.15s;
+}
+.cal-cell.empty { background: transparent; cursor: default; }
+.cal-cell.past  { opacity: 0.32; cursor: not-allowed; }
+.cal-cell.today { background: #fff8e6; }
+.cal-cell.selected {
+  border-color: #4A90D9; background: #e8f4fd;
+}
+.cal-num { font-size: 13px; font-weight: 600; color: #333; line-height: 1.3; }
+.cal-cell.wknd .cal-num { color: #e07a7a; }
+.cal-dots {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 2px; margin-top: 2px;
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; }
+.dot.me { box-shadow: 0 0 0 1.5px #333; }
+
+/* ── 當日已請假名單 ── */
+.day-panel {
+  margin-top: 14px; text-align: left;
+  border-top: 1px solid #eee; padding-top: 12px;
+}
+.day-panel-title { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 8px; }
+.who-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: #444;
+  background: #fafafa; border: 1px solid #eee; border-radius: 8px;
+  padding: 7px 10px; margin-bottom: 6px;
+}
+.who-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.who-name { font-weight: 600; }
+.who-time { color: #888; font-size: 12px; margin-left: auto; }
+.who-empty { font-size: 13px; color: #bbb; padding: 6px 0; }
+
 .hours-chip {
   display: none;
   background: #f0faf4; border: 1px solid #b7e8c9;
   border-radius: 10px; padding: 10px 14px;
   font-size: 14px; font-weight: 600; color: #06C755;
-  margin-bottom: 16px; text-align: center;
+  margin-bottom: 14px; text-align: center;
 }
 .hours-chip.show { display: block; }
 .hours-chip.warn { background: #fdeeee; border-color: #f5c6c6; color: #e74c3c; }
@@ -93,13 +148,21 @@ body {
   <div id="profile"><div class="loading">載入中...</div></div>
 </div>
 
+<div class="card" id="calCard" style="display:none;">
+  <div class="cal-bar">
+    <button onclick="changeMonth(-1)">‹</button>
+    <span class="cal-month" id="calMonth"></span>
+    <button onclick="changeMonth(1)">›</button>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+  <div class="day-panel" id="dayPanel">
+    <div class="day-panel-title" id="dayPanelTitle">👆 請點選日期</div>
+    <div id="whoList"></div>
+  </div>
+</div>
+
 <div class="card" id="mainCard" style="display:none;">
   <div class="section-title">📅 請假申請</div>
-
-  <div class="field">
-    <label>請假日期</label>
-    <input type="date" id="leaveDate" onchange="calcHours()">
-  </div>
 
   <div class="time-row">
     <div class="field">
@@ -131,36 +194,171 @@ body {
 const LIFF_ID = "2010558375-uth18V74";
 const API_URL = "https://script.google.com/macros/s/AKfycbzYwVnpXFGSOGorojA4Axi8zNd6SVZNQKlyLrKLwPjoUDgP9wNubYDHxsCB5sb4XHB8/exec";
 
-let userProfile = null;
+let userProfile  = null;
+let currentMonth = todayStr().slice(0, 7);   // YYYY-MM
+let selectedDate = null;                     // YYYY-MM-DD
+let monthLeaves  = [];                       // 本月全員請假
 
-function setMinDate() {
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('leaveDate').min = today;
+const PALETTE = ['#4A90D9','#E67E22','#8E44AD','#16A085','#E74C3C','#2980B9','#D35400','#27AE60','#C0392B','#7F8C8D'];
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
 }
 
-function buildHourOptions() {
-  const hours = [];
-  for (let h = 6; h <= 22; h++) {
-    hours.push(`<option value="${h}:00">${h} 點</option>`);
+function colorFor(key) {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+// 時間可能是 "9:00" 或 Sheets 回傳的 Date 字串，統一抓出小時
+function hourOf(v) {
+  const s = String(v || '');
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  return m ? parseInt(m[1], 10) : '';
+}
+
+function fmtMonth(m) {
+  const [y, mo] = m.split('-');
+  return `${y} 年 ${parseInt(mo)} 月`;
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ── 月曆 ──
+
+function changeMonth(delta) {
+  const d = new Date(currentMonth + '-01T00:00:00');
+  d.setMonth(d.getMonth() + delta);
+  currentMonth = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  selectedDate = null;
+  document.getElementById('mainCard').style.display = 'none';
+  loadMonthLeaves();
+}
+
+async function loadMonthLeaves() {
+  document.getElementById('calMonth').textContent = fmtMonth(currentMonth);
+  document.getElementById('calGrid').innerHTML =
+    '<div style="grid-column:1/8;padding:24px 0;color:#bbb;font-size:13px;">載入中...</div>';
+  try {
+    const res = await fetch(`${API_URL}?action=all_leaves&month=${currentMonth}`, { credentials:'omit' });
+    const result = await res.json();
+    monthLeaves = (result.success && result.leaves) ? result.leaves : [];
+  } catch(e) {
+    monthLeaves = [];
   }
-  const opts = hours.join('');
-  document.getElementById('startTime').innerHTML = '<option value="">-- 選擇 --</option>' + opts;
-  document.getElementById('endTime').innerHTML   = '<option value="">-- 選擇 --</option>' + opts;
+  renderCalendar();
+  renderDayPanel();
+}
+
+function leavesOn(dateStr) {
+  return monthLeaves.filter(l => l.date === dateStr);
+}
+
+function renderCalendar() {
+  const [y, m] = currentMonth.split('-').map(Number);
+  const first   = new Date(y, m-1, 1);
+  const daysIn  = new Date(y, m, 0).getDate();
+  const startWd = first.getDay();
+  const today   = todayStr();
+
+  const heads = ['日','一','二','三','四','五','六'];
+  let html = heads.map((h,i) =>
+    `<div class="cal-head ${i===0?'sun':''}${i===6?'sat':''}">${h}</div>`).join('');
+
+  for (let i = 0; i < startWd; i++) html += '<div class="cal-cell empty"></div>';
+
+  for (let d = 1; d <= daysIn; d++) {
+    const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const wd = new Date(y, m-1, d).getDay();
+    const dayLeaves = leavesOn(ds);
+
+    const cls = ['cal-cell'];
+    if (wd === 0 || wd === 6) cls.push('wknd');
+    if (ds < today)  cls.push('past');
+    if (ds === today) cls.push('today');
+    if (ds === selectedDate) cls.push('selected');
+
+    // 每人一顆點（同人多筆只顯示一顆）
+    const seen = {};
+    const dots = dayLeaves.filter(l => {
+      if (seen[l.userId]) return false;
+      seen[l.userId] = 1; return true;
+    }).slice(0, 6).map(l =>
+      `<span class="dot ${l.userId===userProfile.userId?'me':''}" style="background:${colorFor(l.userId)}"></span>`
+    ).join('');
+
+    const onclick = ds < today ? '' : ` onclick="selectDate('${ds}')"`;
+    html += `<div class="${cls.join(' ')}"${onclick}>
+      <span class="cal-num">${d}</span>
+      <span class="cal-dots">${dots}</span>
+    </div>`;
+  }
+
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+function selectDate(ds) {
+  selectedDate = ds;
+  renderCalendar();
+  renderDayPanel();
+  document.getElementById('mainCard').style.display = 'block';
+  calcHours();
+}
+
+function renderDayPanel() {
+  const title = document.getElementById('dayPanelTitle');
+  const list  = document.getElementById('whoList');
+
+  if (!selectedDate) {
+    title.textContent = '👆 請點選日期（有色點＝已有人請假）';
+    list.innerHTML = '';
+    return;
+  }
+
+  const [y,m,d] = selectedDate.split('-').map(Number);
+  title.textContent = `👥 ${m}/${d} 已請假人員`;
+
+  const dayLeaves = leavesOn(selectedDate);
+  if (dayLeaves.length === 0) {
+    list.innerHTML = '<div class="who-empty">目前無人請假 ✅</div>';
+    return;
+  }
+
+  list.innerHTML = dayLeaves.map(l => `
+    <div class="who-item">
+      <span class="who-dot" style="background:${colorFor(l.userId)}"></span>
+      <span class="who-name">${esc(l.name)}${l.userId===userProfile.userId?'（我）':''}</span>
+      <span class="who-time">${hourOf(l.startTime)}～${hourOf(l.endTime)} 點・${l.hours}h</span>
+    </div>
+  `).join('');
+}
+
+// ── 時數 ──
+
+function buildHourOptions() {
+  const opts = [];
+  for (let h = 6; h <= 22; h++) opts.push(`<option value="${h}:00">${h} 點</option>`);
+  const s = '<option value="">-- 選擇 --</option>' + opts.join('');
+  document.getElementById('startTime').innerHTML = s;
+  document.getElementById('endTime').innerHTML   = s;
 }
 
 function calcHours() {
-  const d  = document.getElementById('leaveDate').value;
-  const s  = document.getElementById('startTime').value;
-  const e  = document.getElementById('endTime').value;
+  const s = document.getElementById('startTime').value;
+  const e = document.getElementById('endTime').value;
   const chip = document.getElementById('hoursChip');
   const btn  = document.getElementById('btnSubmit');
 
-  if (!d || !s || !e) { chip.className = 'hours-chip'; btn.disabled = true; return; }
+  if (!selectedDate || !s || !e) { chip.className = 'hours-chip'; btn.disabled = true; return; }
 
-  const sh = parseInt(s);
-  const eh = parseInt(e);
-  const diff = eh - sh;
-
+  const diff = parseInt(e) - parseInt(s);
   if (diff <= 0) {
     chip.className = 'hours-chip warn show';
     chip.textContent = '⚠️ 結束時間需晚於開始時間';
@@ -169,7 +367,7 @@ function calcHours() {
   }
 
   chip.className = 'hours-chip show';
-  chip.textContent = `共請假 ${diff} 小時（${sh} 點 ～ ${eh} 點）`;
+  chip.textContent = `${selectedDate}　共 ${diff} 小時（${parseInt(s)} 點 ～ ${parseInt(e)} 點）`;
   btn.disabled = false;
 }
 
@@ -181,56 +379,54 @@ function showMsg(text, ok) {
 }
 
 async function doSubmit() {
-  const d = document.getElementById('leaveDate').value;
+  const d = selectedDate;
   const s = document.getElementById('startTime').value;
   const e = document.getElementById('endTime').value;
   if (!d || !s || !e) return;
 
-  const sh = parseInt(s);
-  const eh = parseInt(e);
-  const hours = eh - sh;
-
-  document.getElementById('btnSubmit').disabled = true;
-  document.getElementById('btnSubmit').textContent = '送出中...';
+  const hours = parseInt(e) - parseInt(s);
+  const btn = document.getElementById('btnSubmit');
+  btn.disabled = true;
+  btn.textContent = '送出中...';
 
   try {
-    const payload = {
-      type: 'LEAVE',
-      userId: userProfile.userId,
-      name: userProfile.displayName,
-      date: d,
-      startTime: s,
-      endTime: e,
-      hours: hours,
-      timestamp: new Date().toISOString()
-    };
-
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        type: 'LEAVE',
+        userId: userProfile.userId,
+        name: userProfile.displayName,
+        date: d,
+        startTime: s,
+        endTime: e,
+        hours: hours,
+        timestamp: new Date().toISOString()
+      })
     });
     const result = await res.json();
 
     if (result.success) {
       showMsg(`✅ 請假申請成功！${d} ${parseInt(s)}點～${parseInt(e)}點（共 ${hours} 小時）`, true);
-      document.getElementById('leaveDate').value = '';
       document.getElementById('startTime').value = '';
       document.getElementById('endTime').value = '';
       document.getElementById('hoursChip').className = 'hours-chip';
-      document.getElementById('btnSubmit').textContent = '送出請假';
+      btn.textContent = '送出請假';
+      loadMonthLeaves();   // 月曆立即更新
       loadHistory();
     } else {
       showMsg('❌ 送出失敗：' + (result.message || '未知錯誤'), false);
-      document.getElementById('btnSubmit').disabled = false;
-      document.getElementById('btnSubmit').textContent = '送出請假';
+      btn.disabled = false;
+      btn.textContent = '送出請假';
     }
   } catch(err) {
     showMsg('❌ 網路錯誤：' + err.message, false);
-    document.getElementById('btnSubmit').disabled = false;
-    document.getElementById('btnSubmit').textContent = '送出請假';
+    btn.disabled = false;
+    btn.textContent = '送出請假';
   }
 }
+
+// ── 我的記錄 ──
 
 function formatDate(s) {
   if (!s) return '';
@@ -246,7 +442,7 @@ function formatDate(s) {
 
 async function loadHistory() {
   try {
-    const month = new Date().toISOString().slice(0, 7);
+    const month = todayStr().slice(0, 7);
     const res = await fetch(
       `${API_URL}?action=leaves&userId=${encodeURIComponent(userProfile.userId)}&month=${month}`,
       { credentials: 'omit' }
@@ -259,18 +455,15 @@ async function loadHistory() {
       card.style.display = 'block';
       list.innerHTML = result.leaves.map(l => {
         const dt = formatDate(l.date);
-        const st = l.startTime || '';
-        const et = l.endTime || '';
-        const hrs = l.hours || '';
         return `
 <div class="history-item">
   <div class="item-main">
     <span class="item-date">📅 ${dt}</span>
-    <span class="item-hours">${hrs} 小時</span>
+    <span class="item-hours">${l.hours || ''} 小時</span>
   </div>
-  <div class="item-time">⏰ ${parseInt(st)} 點 ～ ${parseInt(et)} 點</div>
+  <div class="item-time">⏰ ${hourOf(l.startTime)} 點 ～ ${hourOf(l.endTime)} 點</div>
   <div class="item-footer">
-    <button class="btn-delete" onclick="deleteLeave('${dt}','${st}','${et}')">刪除</button>
+    <button class="btn-delete" onclick="deleteLeave('${dt}','${l.startTime}','${l.endTime}')">刪除</button>
   </div>
 </div>`;
       }).join('');
@@ -300,6 +493,7 @@ async function deleteLeave(date, startTime, endTime) {
     const result = await res.json();
     if (result.success) {
       loadHistory();
+      loadMonthLeaves();
     } else {
       alert('刪除失敗：' + (result.message || '未知錯誤'));
     }
@@ -316,11 +510,12 @@ async function main() {
 
     document.getElementById('profile').innerHTML = `
       <img class="avatar" src="${userProfile.pictureUrl || ''}">
-      <div class="name">${userProfile.displayName}</div>
+      <div class="name">${esc(userProfile.displayName)}</div>
+      <div style="font-size:10px;color:#ccc;margin-top:2px;">v2.1-calendar</div>
     `;
-    document.getElementById('mainCard').style.display = 'block';
-    setMinDate();
+    document.getElementById('calCard').style.display = 'block';
     buildHourOptions();
+    loadMonthLeaves();
     loadHistory();
   } catch(err) {
     document.getElementById('profile').innerHTML =
