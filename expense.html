@@ -153,7 +153,7 @@ body {
   </div>
 
   <div class="month-total" id="monthTotal" style="display:none;">
-    <span>📊 本月合計</span>
+    <span>📊 本月淨額</span>
     <span class="month-total-amount" id="totalAmount">$0</span>
   </div>
 
@@ -182,6 +182,16 @@ document.getElementById('note').addEventListener('input', checkReady);
 function checkReady() {
   const amount = parseFloat(document.getElementById('amount').value);
   document.getElementById('btnSubmit').disabled = !(amount > 0);
+}
+
+// 代墊 = 正數，拿貨付款 = 負數（依類型判定，舊資料也能正確顯示）
+function signedAmount(e) {
+  const v = Math.abs(Number(e.amount) || 0);
+  return String(e.expType) === '拿貨付款' ? -v : v;
+}
+
+function fmtSigned(n) {
+  return (n < 0 ? '-$' : '+$') + Math.abs(n).toLocaleString();
 }
 
 function fmtMonth(m) {
@@ -234,7 +244,8 @@ async function doSubmit() {
     const result = await res.json();
 
     if(result.success){
-      showMsg(`✅ 申請成功！已記錄 $${amount} 元（${payload.expType}）`, true);
+      const signDisp = selectedType === 'payment' ? `-$${amount}` : `+$${amount}`;
+      showMsg(`✅ 申請成功！已記錄 ${signDisp} 元（${payload.expType}）`, true);
       document.getElementById('amount').value   = '';
       document.getElementById('note').value     = '';
       document.getElementById('btnSubmit').textContent = '送出申請';
@@ -272,16 +283,21 @@ async function loadMonthExpenses() {
     if(result.success && result.expenses && result.expenses.length > 0){
       // 最新在最上面
       const expenses = [...result.expenses].reverse();
-      const total    = expenses.reduce((s, e) => s + Number(e.amount), 0);
+      const total    = expenses.reduce((s, e) => s + signedAmount(e), 0);
 
       document.getElementById('monthTotal').style.display = 'flex';
-      document.getElementById('totalAmount').textContent  = `$${total.toLocaleString()}`;
+      const totalEl = document.getElementById('totalAmount');
+      totalEl.textContent  = fmtSigned(total);
+      totalEl.style.color  = total < 0 ? '#e74c3c' : '#06C755';
 
-      list.innerHTML = expenses.map(e => `
+      list.innerHTML = expenses.map(e => {
+        const amt = signedAmount(e);
+        const neg = amt < 0;
+        return `
         <div class="history-item">
           <div class="item-header">
-            <span class="item-type">${e.expType}</span>
-            <span class="item-amount">$${Number(e.amount).toLocaleString()}</span>
+            <span class="item-type" style="${neg?'color:#e74c3c;background:#fdeeee;border-color:#f5c6c6;':''}">${e.expType}</span>
+            <span class="item-amount" style="color:${neg?'#e74c3c':'#06C755'}">${fmtSigned(amt)}</span>
           </div>
           ${e.note ? `<div class="item-note">📝 ${e.note}</div>` : ''}
           <div class="item-footer">
@@ -289,7 +305,8 @@ async function loadMonthExpenses() {
             <button class="btn-delete" onclick="deleteExpense('${e.timestamp}')">刪除</button>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
     } else {
       list.innerHTML = '<div class="empty">本月尚無申請記錄</div>';
     }
@@ -330,6 +347,7 @@ async function main() {
     document.getElementById('profile').innerHTML = `
       <img class="avatar" src="${userProfile.pictureUrl || ''}">
       <div class="name">${userProfile.displayName}</div>
+      <div style="font-size:10px;color:#ccc;margin-top:2px;">v2.1-signed</div>
     `;
     document.getElementById('mainCard').style.display = 'block';
     updateMonthLabel();
